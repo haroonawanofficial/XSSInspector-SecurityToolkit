@@ -12,7 +12,12 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 
 - **Payload Testing**: The tool includes a variety of XSS payloads to test web applications for vulnerabilities.
 
+- **Subdomain Discovery**: The tool collects and includes the results of subdomains in the final list of URLs as not only the URLs associated with the target domain but also its subdomains.
+
+- **Multi Processing**: Built-in python's multiprocessing advantage, which is better suited for CPU-bound tasks like scanning multiple URLs for vulnerabilities.
+  
 - **Reporting**: Generate detailed HTML reports with identified vulnerabilities, making it easier to address security concerns.
+
 
 ## Usage
 
