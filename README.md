@@ -55,7 +55,7 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 
 ![Alt text](https://example.com/path/to/your/image.jpg)
 
-![Alt text]([https://example.com/path/to/your/image.jpg](https://ibb.co/ZV9ZH6k))
+![Alt text](https://ibb.co/ZV9ZH6k)
 
 ## Usage
 
