@@ -3,9 +3,10 @@ import requests
 import argparse
 import numpy as np
 from multiprocessing import Pool
+import threading
 from jinja2 import Environment, FileSystemLoader
 import sqlite3
-import threading
+import signal
 
 requests.packages.urllib3.disable_warnings()
 
@@ -189,6 +190,12 @@ class XSSScanner:
         self.threadNumber = threadNumber
         self.vulnerable_urls = []
         self.report_file = report_file
+        self.stop_scan = False
+        signal.signal(signal.SIGINT, self.handle_ctrl_c)
+
+    def handle_ctrl_c(self, signum, frame):
+        print("Ctrl+C detected. Stopping the scan.")
+        self.stop_scan = True
 
     def start(self):
         print("[>>] [Scanning for XSS vulnerabilities]")
@@ -199,8 +206,7 @@ class XSSScanner:
         with Pool(self.threadNumber) as pool:
             results = pool.map(self.scan_urls_for_xss, self.url_list)
 
-        for result in results:
-            self.vulnerable_urls.extend(result)
+        self.vulnerable_urls = [url for sublist in results for url in sublist]
 
         if self.report_file:
             self.store_vulnerabilities_in_sqlite()
@@ -210,54 +216,26 @@ class XSSScanner:
 
     def test_xss_vulnerabilities(self, url):
         vulnerable_urls = []
+        if self.stop_scan:
+            return vulnerable_urls
+
         for payload in xss_payloads:
             payload_url = url + "?param=" + payload
             try:
                 response = requests.get(payload_url, verify=False)
-                status_code = response.status_code
-                response_length = len(response.text)
-                payload_found = payload in response.text
+                if self.stop_scan:
+                    return vulnerable_urls
 
-                if status_code == 200 and response_length > 0 and payload_found:
-                    print(f"Potential XSS vulnerability found in URL: {payload_url}")
-                    vulnerable_urls.append(payload_url)
-            except Exception as e:
-                pass
-        return vulnerable_urls
-
-    def store_vulnerabilities_in_sqlite(self):
-        conn = sqlite3.connect("xss_vulnerabilities.db")
-        cursor = conn.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS vulnerabilities (url TEXT)")
-        conn.commit()
-
-        for url in self.vulnerable_urls:
-            cursor.execute("INSERT INTO vulnerabilities (url) VALUES (?)", (url,))
-            conn.commit()
-
-        conn.close()
-
-    def generate_report(self):
-        env = Environment(loader=FileSystemLoader('.'))
-        template = env.get_template('report_template.html')
-        report_content = template.render(vulnerable_urls=self.vulnerable_urls)
-
-        with open(self.report_file, "w") as f:
-            f.write(report_content)
-
-    def scan_urls_for_xss(self, url):
-        vulnerable_urls = self.test_xss_vulnerabilities(url)
-        return vulnerable_urls
-
-    def test_xss_vulnerabilities(self, url):
-        vulnerable_urls = []
-        for payload in xss_payloads:
-            payload_url = url + "?param=" + payload
-            try:
-                response = requests.get(payload_url, verify=False)
-                if payload in response.text:
-                    print(f"Potential XSS vulnerability found in URL: {payload_url}")
-                    vulnerable_urls.append(payload_url)
+                if response.status_code == 200:
+                    if not response.text:
+                        # Response is empty; not an XSS vulnerability
+                        continue
+                    elif payload not in response.text:
+                        # Payload not found in the response; not an XSS vulnerability
+                        continue
+                    else:
+                        print(f"Potential XSS vulnerability found in URL: {payload_url}")
+                        vulnerable_urls.append(payload_url)
             except Exception as e:
                 pass
         return vulnerable_urls
