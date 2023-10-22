@@ -214,6 +214,18 @@ class XSSScanner:
 
         return self.vulnerable_urls
 
+    def is_image_url(self, url):
+        try:
+            response = requests.head(url, verify=False, timeout=10)  # Send a HEAD request to retrieve headers
+            content_type = response.headers.get('Content-Type', '')
+
+            if 'image' in content_type:
+                return True
+        except Exception as e:
+            pass
+
+        return False
+    
     def test_xss_vulnerabilities(self, url):
         vulnerable_urls = []
         if self.stop_scan:
