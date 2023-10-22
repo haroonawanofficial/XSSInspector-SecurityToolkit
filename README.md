@@ -43,7 +43,7 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 
 - **Performance**: Multiprocessing is suitable for CPU-bound tasks, while multithreading is effective for I/O-bound tasks, which code automatically decides.
 
-Tuning: Adjust the number of threads and processes based on the specific hardware and network conditions where the code is deployed. Optimization may vary depending on the environment.
+- **Tuning**: The code adjusts itself for threads and processes based on the specific hardware and network present which optimize performance.
 
 ## Usage
 
