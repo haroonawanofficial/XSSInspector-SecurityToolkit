@@ -203,7 +203,7 @@ class XSSScanner:
 
         self.url_list = list(set(self.url_list))
 
-        with Pool(self.threadNumber) as pool:
+        with Pool(int(self.threadNumber)) as pool:
             results = pool.map(self.scan_urls_for_xss, self.url_list)
 
         self.vulnerable_urls = [url for sublist in results for url in sublist]
