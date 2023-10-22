@@ -34,7 +34,14 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
   
 - **Final Report**: The tool generates detailed HTML reports with identified vulnerabilities, making it easier to address security concerns.
 
+## False Positive Damping approach
 
+1. In an effort to reduce false positives when hunting for XSS vulnerabilities, this tool employs a False Positive Damping approach.
+2. It automatically sends a HEAD request to the URL and checks the `Content-Type` header of the response. 
+3. The tool examines `Content-Type` header indicates that the URL points to a non-HTML or non-PHP file (e.g., images, non-web content), the tool bypasses the URL link.
+4. This approach helps filter out URLs that are unlikely to be vulnerable to XSS attacks, thus improving the accuracy of the scan.
+5. The tool is designed to enhance the efficiency and effectiveness of XSS vulnerability scanning.
+   
 ## Benchmark
 
 - **Concurrency**: The code use multithreading and multiprocessing enhances performance by enabling concurrent execution of tasks.
