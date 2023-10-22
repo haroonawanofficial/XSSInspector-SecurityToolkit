@@ -2,17 +2,15 @@ import sys
 import requests
 import argparse
 import numpy as np
-import threading
-import urllib.parse as urlparse
-import requests.packages.urllib3
+from multiprocessing import Pool
 from jinja2 import Environment, FileSystemLoader
 import sqlite3
+import threading
 
 requests.packages.urllib3.disable_warnings()
 
 BLUE, RED, WHITE, YELLOW, MAGENTA, GREEN, END = '\33[94m', '\033[91m', '\33[97m', '\33[93m', '\033[1;35m', '\033[1;32m', '\033[0m'
 
-# Define a list of XSS payloads to test
 xss_payloads = [
     '<script>alert("XSS")</script>',
     '<img src="x" onerror="alert(\'XSS\')" />',
@@ -72,7 +70,7 @@ class PassiveCrawl:
         self.want_subdomain = want_subdomain
         self.deepcrawl = deepcrawl
         self.threadNumber = threadNumber
-        self.final_url_list = set()  # Use a set to eliminate duplicates
+        self.final_url_list = set()
 
     def start(self):
         if self.deepcrawl:
@@ -83,10 +81,10 @@ class PassiveCrawl:
         urls_list1 = self.getWaybackURLs(self.domain, self.want_subdomain)
         urls_list2 = self.getOTX_URLs(self.domain)
 
-        self.final_url_list.update(urls_list1)  # Use update to add elements to the set
+        self.final_url_list.update(urls_list1)
         self.final_url_list.update(urls_list2)
 
-        return list(self.final_url_list)  # Convert the set back to a list
+        return list(self.final_url_list)
 
     def getIdealDomain(self, domainName):
         final_domain = domainName.replace("http://", "")
@@ -123,22 +121,22 @@ class PassiveCrawl:
         except:
             pass
 
-        final_urls_list = set()  # Use a set to eliminate duplicates
+        final_urls_list = set()
         for url in urls_list:
-            final_urls_list.add(url[0])  # Use add to add elements to the set
+            final_urls_list.add(url[0])
 
-        return list(final_urls_list)  # Convert the set back to a list
+        return list(final_urls_list)
 
     def getOTX_URLs(self, domain):
         url = f"https://otx.alienvault.com/api/v1/indicators/hostname/{domain}/url_list"
         raw_urls = self.make_GET_Request(url, "json")
         urls_list = raw_urls["url_list"]
 
-        final_urls_list = set()  # Use a set to eliminate duplicates
+        final_urls_list = set()
         for url in urls_list:
-            final_urls_list.add(url["url"])  # Use add to add elements to the set
+            final_urls_list.add(url["url"])
 
-        return list(final_urls_list)  # Convert the set back to a list
+        return list(final_urls_list)
 
     def startDeepCommonCrawl(self):
         api_list = self.get_all_api_CommonCrawl()
@@ -170,7 +168,7 @@ class PassiveCrawl:
         else:
             wild_card = ""
 
-        final_urls_list = set()  # Use a set to eliminate duplicates
+        final_urls_list = set()
 
         for api in apiList:
             url = f"{api}?url={wild_card+domain}/*&fl=url"
@@ -181,9 +179,9 @@ class PassiveCrawl:
 
                 for url in urls_list:
                     if url != "":
-                        final_urls_list.add(url)  # Use add to add elements to the set
+                        final_urls_list.add(url)
 
-        return list(final_urls_list)  # Convert the set back to a list
+        return list(final_urls_list)
 
 class XSSScanner:
     def __init__(self, url_list, threadNumber, report_file):
@@ -195,15 +193,14 @@ class XSSScanner:
     def start(self):
         print("[>>] [Scanning for XSS vulnerabilities]")
         print("=========================================================================")
-        thread_list = []
-        for thread_num in range(int(self.threadNumber)):
-            t = threading.Thread(target=self.scan_urls_for_xss, args=(self.url_list,))
-            thread_list.append(t)
 
-        for thread in thread_list:
-            thread.start()
-        for thread in thread_list:
-            thread.join()
+        self.url_list = list(set(self.url_list))
+
+        with Pool(self.threadNumber) as pool:
+            results = pool.map(self.scan_urls_for_xss, self.url_list)
+
+        for result in results:
+            self.vulnerable_urls.extend(result)
 
         if self.report_file:
             self.store_vulnerabilities_in_sqlite()
@@ -211,31 +208,26 @@ class XSSScanner:
 
         return self.vulnerable_urls
 
-    def split_list(self, list_name, total_part_num):
-        final_list = []
-        split = np.array_split(list_name, total_part_num)
-        for array in split:
-            final_list.append(list(array))
-        return final_list
-
     def test_xss_vulnerabilities(self, url):
+        vulnerable_urls = []
         for payload in xss_payloads:
-            # Construct the payload-injected URL
             payload_url = url + "?param=" + payload
             try:
                 response = requests.get(payload_url, verify=False)
-                # Check the response for signs of XSS
-                if payload in response.text:
+                status_code = response.status_code
+                response_length = len(response.text)
+                payload_found = payload in response.text
+
+                if status_code == 200 and response_length > 0 and payload_found:
                     print(f"Potential XSS vulnerability found in URL: {payload_url}")
-                    self.vulnerable_urls.append(payload_url)
+                    vulnerable_urls.append(payload_url)
             except Exception as e:
-                # Handle request errors
                 pass
+        return vulnerable_urls
 
     def store_vulnerabilities_in_sqlite(self):
         conn = sqlite3.connect("xss_vulnerabilities.db")
         cursor = conn.cursor()
-
         cursor.execute("CREATE TABLE IF NOT EXISTS vulnerabilities (url TEXT)")
         conn.commit()
 
@@ -253,9 +245,46 @@ class XSSScanner:
         with open(self.report_file, "w") as f:
             f.write(report_content)
 
-    def scan_urls_for_xss(self, url_list):
-        for url in url_list:
-            self.test_xss_vulnerabilities(url)
+    def scan_urls_for_xss(self, url):
+        vulnerable_urls = self.test_xss_vulnerabilities(url)
+        return vulnerable_urls
+
+    def test_xss_vulnerabilities(self, url):
+        vulnerable_urls = []
+        for payload in xss_payloads:
+            payload_url = url + "?param=" + payload
+            try:
+                response = requests.get(payload_url, verify=False)
+                if payload in response.text:
+                    print(f"Potential XSS vulnerability found in URL: {payload_url}")
+                    vulnerable_urls.append(payload_url)
+            except Exception as e:
+                pass
+        return vulnerable_urls
+
+    def store_vulnerabilities_in_sqlite(self):
+        conn = sqlite3.connect("xss_vulnerabilities.db")
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS vulnerabilities (url TEXT)")
+        conn.commit()
+
+        for url in self.vulnerable_urls:
+            cursor.execute("INSERT INTO vulnerabilities (url) VALUES (?)", (url,))
+            conn.commit()
+
+        conn.close()
+
+    def generate_report(self):
+        env = Environment(loader=FileSystemLoader('.'))
+        template = env.get_template('report_template.html')
+        report_content = template.render(vulnerable_urls=self.vulnerable_urls)
+
+        with open(self.report_file, "w") as f:
+            f.write(report_content)
+
+    def scan_urls_for_xss(self, url):
+        vulnerable_urls = self.test_xss_vulnerabilities(url)
+        return vulnerable_urls
 
 if __name__ == '__main__':
     arguments = get_arguments()
