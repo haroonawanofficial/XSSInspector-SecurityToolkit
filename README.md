@@ -16,6 +16,8 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 
 - **Multi Processing**: Built-in python's multiprocessing advantage, which is better suited for CPU-bound tasks like scanning multiple URLs for vulnerabilities.
   
+- **Multi Threading**: Built-in python's advantage to use default threads 50 but it goes upto 100 if CPU supports that much suited for tasks like scanning multiple URLs for vulnerabilities.
+
 - **SQLite**: Sqllite is a self-contained, serverless, and zero-configuration database engine that is used in embedded systems, mobile devices, desktop applications, and small-scale database applications.
 
 - **SQLite Database File (xss_vulnerabilities.db) for XSSInspector**:
