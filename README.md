@@ -30,7 +30,7 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 8. Reporting and Compliance: Structured data in the database aids in generating comprehensive reports and compliance documentation.
 
   
-- **Reporting**: Generate detailed HTML reports with identified vulnerabilities, making it easier to address security concerns.
+- **Final Report**: The tool generates detailed HTML reports with identified vulnerabilities, making it easier to address security concerns.
 
 
 ## Usage
