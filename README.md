@@ -35,6 +35,16 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 - **Final Report**: The tool generates detailed HTML reports with identified vulnerabilities, making it easier to address security concerns.
 
 
+## Benchmark
+
+- **Concurrency**: The code use multithreading and multiprocessing enhances performance by enabling concurrent execution of tasks.
+ 
+- **I/O and Network Efficiency**: The code use network requests, optimizing I/O and network operations including managing network latency, connection reuse.
+
+- **Performance**: Multiprocessing is suitable for CPU-bound tasks, while multithreading is effective for I/O-bound tasks, which code automatically decides.
+
+Tuning: Adjust the number of threads and processes based on the specific hardware and network conditions where the code is deployed. Optimization may vary depending on the environment.
+
 ## Usage
 
 1. Clone the repository.
