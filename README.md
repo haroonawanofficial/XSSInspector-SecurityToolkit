@@ -45,6 +45,16 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 
 - **Tuning**: The code adjusts itself for threads and processes based on the specific hardware and network present which optimize performance.
 
+## POC of XSSInspector
+
+1. This proof of concept demonstrates a method for processing a large number of URLs rapidly and detecting cross-site scripting (XSS) vulnerabilities and their types in real-time.
+2. It showcases how XSSInspector can process 6887 URLs within seconds and identify potential security issues as they occur.
+3. It removes duplicates.
+4. It performs lightning-fast processing.
+5. It automatically crawls URLs for vulnerable links and forms.
+
+![Alt text](https://example.com/path/to/your/image.jpg)
+
 ## Usage
 
 1. Clone the repository.
