@@ -24,4 +24,4 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 ## Usage Example
 
 ```bash
-python xss_inspector.py -d example.com -t 50 --report report.html
+python xssinspector.py -d example.com -t 50 --report report.html
