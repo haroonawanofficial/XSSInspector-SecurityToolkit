@@ -1,9 +1,9 @@
+import threading
 import sys
 import requests
 import argparse
 import numpy as np
-from multiprocessing import Pool
-import threading
+from concurrent.futures import ThreadPoolExecutor
 from jinja2 import Environment, FileSystemLoader
 import sqlite3
 import signal
@@ -46,15 +46,15 @@ xss_payloads = [
 def get_arguments():
     parser = argparse.ArgumentParser(description=f'{RED} Advance XSS Reporter')
     parser._optionals.title = f"{GREEN}Optional Arguments{YELLOW}"
-    parser.add_argument("-t", "--thread", dest="thread", help="Number of Threads to Used. Default=50", default=50)
+    parser.add_argument("-t", "--thread", dest="thread", help="Number of Threads to Use. Default=50", default=50)
     parser.add_argument("-o", "--output", dest="output", help="Save Vulnerable URLs in TXT file")
-    parser.add_argument("-s", "--subs", dest="want_subdomain", help="Include Result of Subdomains", action='store_true')
+    parser.add_argument("-s", "--subs", dest="want_subdomain", help="Include Results of Subdomains", action='store_true')
     parser.add_argument("--deepcrawl", dest="deepcrawl", help="Uses All Available APIs of CommonCrawl for Crawling URLs [**Takes Time**]", action='store_true')
     parser.add_argument("--report", dest="report_file", help="Generate an HTML report", default=None)
 
     required_arguments = parser.add_argument_group(f'{RED}Required Arguments{GREEN}')
-    required_arguments.add_argument("-l", "--list", dest="url_list", help="URLs List, ex:- google_urls.txt")
-    required_arguments.add_argument("-d", "--domain", dest="domain", help="Target Domain Name, ex:- testphp.vulnweb.com")
+    required_arguments.add_argument("-l", "--list", dest="url_list", help="URLs List, e.g., google_urls.txt")
+    required_arguments.add_argument("-d", "--domain", dest="domain", help="Target Domain Name, e.g., testphp.vulnweb.com")
     return parser.parse_args()
 
 def readTargetFromFile(filepath):
@@ -203,8 +203,8 @@ class XSSScanner:
 
         self.url_list = list(set(self.url_list))
 
-        with Pool(int(self.threadNumber)) as pool:
-            results = pool.map(self.scan_urls_for_xss, self.url_list)
+        with ThreadPoolExecutor(max_workers=int(self.threadNumber)) as executor:
+            results = list(executor.map(self.scan_urls_for_xss, self.url_list))
 
         self.vulnerable_urls = [url for sublist in results for url in sublist]
 
@@ -222,7 +222,7 @@ class XSSScanner:
         for payload in xss_payloads:
             payload_url = url + "?param=" + payload
             try:
-                response = requests.get(payload_url, verify=False)
+                response = requests.get(payload_url, verify=False, timeout=10)  # Adjust the timeout as needed
                 if self.stop_scan:
                     return vulnerable_urls
 
@@ -232,6 +232,9 @@ class XSSScanner:
                         continue
                     elif payload not in response.text:
                         # Payload not found in the response; not an XSS vulnerability
+                        continue
+                    elif "alert" not in response.text:
+                        # No alert box detected; not an XSS vulnerability
                         continue
                     else:
                         print(f"Potential XSS vulnerability found in URL: {payload_url}")
