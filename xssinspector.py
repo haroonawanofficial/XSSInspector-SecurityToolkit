@@ -1,3 +1,4 @@
+#no comment version
 import threading
 import sys
 import requests
@@ -7,7 +8,24 @@ from concurrent.futures import ThreadPoolExecutor
 from jinja2 import Environment, FileSystemLoader
 import sqlite3
 import signal
+from datetime import datetime
+import time
 
+cursor = "|"
+
+def animate_cursor():
+    global cursor
+    while True:
+        cursor = "|"
+        time.sleep(0.5)
+        cursor = " "
+        time.sleep(0.5)
+
+cursor_thread = threading.Thread(target=animate_cursor)
+cursor_thread.daemon = True
+cursor_thread.start()
+
+current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 requests.packages.urllib3.disable_warnings()
 
 BLUE, RED, WHITE, YELLOW, MAGENTA, GREEN, END = '\33[94m', '\033[91m', '\33[97m', '\33[93m', '\033[1;35m', '\033[1;32m', '\033[0m'
@@ -15,44 +33,23 @@ BLUE, RED, WHITE, YELLOW, MAGENTA, GREEN, END = '\33[94m', '\033[91m', '\33[97m'
 xss_payloads = [
     '<script>alert("XSS")</script>',
     '<img src="x" onerror="alert(\'XSS\')" />',
-    '<script>alert("XSS")</script>',
-    '<img src=x onerror=alert("XSS")>',
-    '<a href="javascript:alert(\'XSS\')">Click Me</a>',
-    '"><script>alert("XSS")</script>',
-    '"><img src=x onerror=alert("XSS")>',
-    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
-    'javascript:alert("XSS")',
-    'javascript:confirm("XSS")',
-    'javascript:eval("alert(\'XSS\')")',
-    '<script>alert("XSS")</script>',
-    '<img src=x onerror=alert("XSS")>',
-    '<a href="javascript:alert(\'XSS\')">Click Me</a>',
-    '"><script>alert("XSS")</script>',
-    '"><img src=x onerror=alert("XSS")>',
-    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
-    'javascript:alert("XSS")',
-    'javascript:confirm("XSS")',
-    'javascript:eval("alert(\'XSS\')")',
-    '<iframe src="javascript:alert(\'XSS\')"></iframe>',
-    '<form action="javascript:alert(\'XSS\')"><input type="submit"></form>',
-    '<input type="text" value="<img src=x onerror=alert(\'XSS\')>" />',
-    '<a href="javascript:confirm(\'XSS\')">Click Me</a>',
-    '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
-    '<img src=x onerror=confirm("XSS")>',
-    '<img src=x onerror=eval("alert(\'XSS\')")>',
-    # Add more payloads here
+]
+
+obfuscation_methods = [
+    lambda payload: payload,
+    lambda payload: payload.replace("alert", "confirm"),
+    lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload),
+    lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload),
 ]
 
 def get_arguments():
-    parser = argparse.ArgumentParser(description=f'{RED} Advance XSS Reporter')
-    parser._optionals.title = f"{GREEN}Optional Arguments{YELLOW}"
+    parser = argparse.ArgumentParser(description='Advanced XSS Reporter')
     parser.add_argument("-t", "--thread", dest="thread", help="Number of Threads to Use. Default=50", default=50)
     parser.add_argument("-o", "--output", dest="output", help="Save Vulnerable URLs in TXT file")
     parser.add_argument("-s", "--subs", dest="want_subdomain", help="Include Results of Subdomains", action='store_true')
     parser.add_argument("--deepcrawl", dest="deepcrawl", help="Uses All Available APIs of CommonCrawl for Crawling URLs [**Takes Time**]", action='store_true')
     parser.add_argument("--report", dest="report_file", help="Generate an HTML report", default=None)
-
-    required_arguments = parser.add_argument_group(f'{RED}Required Arguments{GREEN}')
+    required_arguments = parser.add_argument_group('Required Arguments')
     required_arguments.add_argument("-l", "--list", dest="url_list", help="URLs List, e.g., google_urls.txt")
     required_arguments.add_argument("-d", "--domain", dest="domain", help="Target Domain Name, e.g., testphp.vulnweb.com")
     return parser.parse_args()
@@ -61,7 +58,7 @@ def readTargetFromFile(filepath):
     urls_list = []
     with open(filepath, "r") as f:
         for urls in f.readlines():
-            if urls != "":
+            if urls.strip():
                 urls_list.append(urls.strip())
     return urls_list
 
@@ -78,13 +75,10 @@ class PassiveCrawl:
             self.startDeepCommonCrawl()
         else:
             self.getCommonCrawlURLs(self.domain, self.want_subdomain, ["http://index.commoncrawl.org/CC-MAIN-2018-22-index"])
-
         urls_list1 = self.getWaybackURLs(self.domain, self.want_subdomain)
         urls_list2 = self.getOTX_URLs(self.domain)
-
         self.final_url_list.update(urls_list1)
         self.final_url_list.update(urls_list2)
-
         return list(self.final_url_list)
 
     def getIdealDomain(self, domainName):
@@ -110,44 +104,37 @@ class PassiveCrawl:
         return result
 
     def getWaybackURLs(self, domain, want_subdomain):
-        if want_subdomain == True:
+        if want_subdomain:
             wild_card = "*."
         else:
             wild_card = ""
-
         url = f"http://web.archive.org/cdx/search/cdx?url={wild_card+domain}/*&output=json&collapse=urlkey&fl=original"
         urls_list = self.make_GET_Request(url, "json")
         try:
             urls_list.pop(0)
         except:
             pass
-
         final_urls_list = set()
         for url in urls_list:
             final_urls_list.add(url[0])
-
         return list(final_urls_list)
 
     def getOTX_URLs(self, domain):
         url = f"https://otx.alienvault.com/api/v1/indicators/hostname/{domain}/url_list"
         raw_urls = self.make_GET_Request(url, "json")
         urls_list = raw_urls["url_list"]
-
         final_urls_list = set()
         for url in urls_list:
             final_urls_list.add(url["url"])
-
         return list(final_urls_list)
 
     def startDeepCommonCrawl(self):
         api_list = self.get_all_api_CommonCrawl()
         collection_of_api_list = self.split_list(api_list, int(self.threadNumber))
-
         thread_list = []
         for thread_num in range(int(self.threadNumber)):
             t = threading.Thread(target=self.getCommonCrawlURLs, args=(self.domain, self.want_subdomain, collection_of_api_list[thread_num],))
             thread_list.append(t)
-
         for thread in thread_list:
             thread.start()
         for thread in thread_list:
@@ -157,39 +144,33 @@ class PassiveCrawl:
         url = "http://index.commoncrawl.org/collinfo.json"
         raw_api = self.make_GET_Request(url, "json")
         final_api_list = []
-
         for items in raw_api:
             final_api_list.append(items["cdx-api"])
-
         return final_api_list
 
     def getCommonCrawlURLs(self, domain, want_subdomain, apiList):
-        if want_subdomain == True:
+        if want_subdomain:
             wild_card = "*."
         else:
             wild_card = ""
-
         final_urls_list = set()
-
         for api in apiList:
             url = f"{api}?url={wild_card+domain}/*&fl=url"
             raw_urls = self.make_GET_Request(url, "text")
-
             if ("No Captures found for:" not in raw_urls) and ("<title>" not in raw_urls):
                 urls_list = raw_urls.split("\n")
-
                 for url in urls_list:
                     if url != "":
                         final_urls_list.add(url)
-
         return list(final_urls_list)
 
 class XSSScanner:
-    def __init__(self, url_list, threadNumber, report_file):
+    def __init__(self, url_list, threadNumber, report_file, payload=None):
         self.url_list = url_list
         self.threadNumber = threadNumber
         self.vulnerable_urls = []
         self.report_file = report_file
+        self.payload = payload
         self.stop_scan = False
         signal.signal(signal.SIGINT, self.handle_ctrl_c)
 
@@ -198,59 +179,28 @@ class XSSScanner:
         self.stop_scan = True
 
     def start(self):
-        print("[>>] [Scanning for XSS vulnerabilities]")
-        print("=========================================================================")
-
+        print(f"[{current_time}] Now implementing logics to capture XSS vulnerabilities on given links")
         self.url_list = list(set(self.url_list))
-
         with ThreadPoolExecutor(max_workers=int(self.threadNumber)) as executor:
-            results = list(executor.map(self.scan_urls_for_xss, self.url_list))
-
+            results = list(executor.map(lambda url: self.scan_urls_for_xss(url, self.payload), self.url_list))
         self.vulnerable_urls = [url for sublist in results for url in sublist]
-
         if self.report_file:
             self.store_vulnerabilities_in_sqlite()
             self.generate_report()
-
         return self.vulnerable_urls
 
-    def is_image_url(self, url):
-        try:
-            response = requests.head(url, verify=False, timeout=10)  # Send a HEAD request to retrieve headers
-            content_type = response.headers.get('Content-Type', '')
-
-            if 'image' in content_type:
-                return True
-        except Exception as e:
-            pass
-
-        return False
-    
-    def test_xss_vulnerabilities(self, url):
+    def scan_urls_for_xss(self, url, payload):
         vulnerable_urls = []
-        if self.stop_scan:
-            return vulnerable_urls
-
-        for payload in xss_payloads:
-            payload_url = url + "?param=" + payload
+        for obfuscate_fn in obfuscation_methods:
+            obfuscated_payload = obfuscate_fn(payload)
+            payload_url = url + "?" + obfuscated_payload
+            print(f"[{current_time}] Testing URL: {payload_url} Cursor: {cursor}", end='\r')
             try:
-                response = requests.get(payload_url, verify=False, timeout=10)  # Adjust the timeout as needed
+                response = requests.get(payload_url, verify=False, timeout=10)
                 if self.stop_scan:
-                    return vulnerable_urls
-
-                if response.status_code == 200:
-                    if not response.text:
-                        # Response is empty; not an XSS vulnerability
-                        continue
-                    elif payload not in response.text:
-                        # Payload not found in the response; not an XSS vulnerability
-                        continue
-                    elif "alert" not in response.text:
-                        # No alert box detected; not an XSS vulnerability
-                        continue
-                    else:
-                        print(f"Potential XSS vulnerability found in URL: {payload_url}")
-                        vulnerable_urls.append(payload_url)
+                    return []
+                if response.status_code == 200 and "alert" in response.text:
+                    vulnerable_urls.append(payload_url)
             except Exception as e:
                 pass
         return vulnerable_urls
@@ -260,49 +210,33 @@ class XSSScanner:
         cursor = conn.cursor()
         cursor.execute("CREATE TABLE IF NOT EXISTS vulnerabilities (url TEXT)")
         conn.commit()
-
         for url in self.vulnerable_urls:
             cursor.execute("INSERT INTO vulnerabilities (url) VALUES (?)", (url,))
             conn.commit()
-
         conn.close()
 
     def generate_report(self):
         env = Environment(loader=FileSystemLoader('.'))
         template = env.get_template('report_template.html')
         report_content = template.render(vulnerable_urls=self.vulnerable_urls)
-
         with open(self.report_file, "w") as f:
             f.write(report_content)
 
-    def scan_urls_for_xss(self, url):
-        vulnerable_urls = self.test_xss_vulnerabilities(url)
-        return vulnerable_urls
-
 if __name__ == '__main__':
     arguments = get_arguments()
-
     if arguments.domain:
-        print("=========================================================================")
-        print("[>>] Crawling URLs from: WaybackMachine, AlienVault OTX, CommonCrawl ...")
+        print(f"[{current_time}] Collecting URLs from WaybackMachine, AlienVault OTX, CommonCrawl")
         crawl = PassiveCrawl(arguments.domain, arguments.want_subdomain, arguments.thread, arguments.deepcrawl)
         final_url_list = crawl.start()
-
     elif arguments.url_list:
         final_url_list = readTargetFromFile(arguments.url_list)
-
     else:
         print("[!] Please Specify --domain or --list flag ..")
         print(f"[*] Type: {sys.argv[0]} --help")
         sys.exit()
-
-    print("=========================================================================")
-    print("[>>] [Total URLs] : ", len(final_url_list))
-
     scan = XSSScanner(final_url_list, arguments.thread, arguments.report_file)
     vulnerable_urls = scan.start()
-
-    print("=========================================================================")
+    print(f"[{current_time}] Total Links Audited: ", len(final_url_list))
     for url in vulnerable_urls:
         print(url)
-    print("\n[>>] [Total Confirmed XSS Vulnerabilities] : ", len(vulnerable_urls))
+    print(f"[{current_time}] Total Confirmed Cross Site Scripting Vulnerabilities: ", len(vulnerable_urls))
