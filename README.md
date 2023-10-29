@@ -34,7 +34,7 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
   
 - **Final Report**: The tool generates detailed HTML reports with identified vulnerabilities, making it easier to address security concerns.
 
-## False Positive Damping approach
+## False Positive Damp Approach
 
 1. In an effort to reduce false positives when hunting for XSS vulnerabilities, this tool employs a False Positive Damping approach.
 2. It automatically sends a HEAD request to the URL and checks the `Content-Type` header of the response. 
@@ -42,21 +42,25 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 4. This approach helps filter out URLs that are unlikely to be vulnerable to XSS attacks, thus improving the accuracy of the scan.
 5. The tool is designed to enhance the efficiency and effectiveness of XSS vulnerability scanning.
    
-## Benchmark
-
-- **Concurrency**: The code use multithreading and multiprocessing enhances performance by enabling concurrent execution of tasks.
- 
-- **I/O and Network Efficiency**: The code use network requests, optimizing I/O and network operations including managing network latency, connection reuse.
-
-- **Performance**: Multiprocessing is suitable for CPU-bound tasks, while multithreading is effective for I/O-bound tasks, which code automatically decides.
-
-- **Tuning**: The code adjusts itself for threads and processes based on the specific hardware and network present which optimize performance.
-
 ## Heuristic Logic:
 XSSInspector heuristic logic into the scanner allows it to analyze response content for indicators like "alert" messages and script tags, thus making it more adept at identifying potential XSS vulnerabilities. By focusing on these common XSS patterns, the scanner is more efficient in its detection approach, reducing false positives and enhancing its precision.
 
 ## Obfuscation Logic:
 XSSInspector obfuscation logic introduces various encoding techniques, including hex encoding, unicode encoding, base64 encoding, double encoding, and more, to generate a wide range of obfuscated payloads. This diversification of payloads significantly improves the scanner's evasion capabilities by making it challenging for security filters to detect and mitigate attacks.
+
+## Obfuscation Security Testing
+
+- Replace "alert" with "confirm": Replaces the string "alert" with "confirm" in the payload.
+- Hex Encoding: Encodes the payload using hexadecimal representation (e.g., \x41 for 'A').
+- Unicode Encoding: Encodes the payload using Unicode representation (e.g., \u0041 for 'A').
+- Base64 Encoding: Encodes the payload in Base64 format.
+- UTF-16 Encoding: Encodes the payload in UTF-16 format.
+- UTF-32 Encoding: Encodes the payload in UTF-32 format.
+- ROT13 Encoding: Applies ROT13 encoding to the payload.
+- Percent Encoding: Encodes the payload by replacing characters with their percent-encoded representations (e.g., %20 for space).
+- HTML Entity Encoding: Encodes the payload using HTML entity representations (e.g., &#65; for 'A').
+- Null Byte Encoding: Replaces characters with null bytes (e.g., replaces 'a' with '\x00a').
+
 
 ## XSSInsecptor Obfuscation & Heuristic Benefits:
 
@@ -65,6 +69,7 @@ XSSInspector obfuscation logic introduces various encoding techniques, including
 - Evasion and Bypass Capabilities: Obfuscation logic strengthens the scanner's evasion techniques, making it harder for security mechanisms to thwart attacks.
 - Comprehensive Testing: With obfuscation techniques, the scanner thoroughly tests potential vulnerabilities by employing multiple payload variations.
 - Improved Reliability: The combination of heuristic and obfuscation logic ensures a more reliable and effective XSS scanner, resulting in precise vulnerability identification and decreased security risks.
+
 
 ## POC of XSSInspector
 
@@ -77,6 +82,17 @@ XSSInspector obfuscation logic introduces various encoding techniques, including
 ![Alt text](https://i.ibb.co/n6GJSJ1/Untitled.png)
 
 ![Alt text](https://i.ibb.co/Y3grD7q/Untitled2.png)
+
+## Benchmark
+
+- **Concurrency**: The code use multithreading and multiprocessing enhances performance by enabling concurrent execution of tasks.
+ 
+- **I/O and Network Efficiency**: The code use network requests, optimizing I/O and network operations including managing network latency, connection reuse.
+
+- **Performance**: Multiprocessing is suitable for CPU-bound tasks, while multithreading is effective for I/O-bound tasks, which code automatically decides.
+
+- **Tuning**: The code adjusts itself for threads and processes based on the specific hardware and network present which optimize performance.
+
 
 ## Usage
 
