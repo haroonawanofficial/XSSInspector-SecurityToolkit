@@ -52,6 +52,20 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 
 - **Tuning**: The code adjusts itself for threads and processes based on the specific hardware and network present which optimize performance.
 
+## Heuristic Logic:
+XSSInspector heuristic logic into the scanner allows it to analyze response content for indicators like "alert" messages and script tags, thus making it more adept at identifying potential XSS vulnerabilities. By focusing on these common XSS patterns, the scanner is more efficient in its detection approach, reducing false positives and enhancing its precision.
+
+## Obfuscation Logic:
+XSSInspector obfuscation logic introduces various encoding techniques, including hex encoding, unicode encoding, base64 encoding, double encoding, and more, to generate a wide range of obfuscated payloads. This diversification of payloads significantly improves the scanner's evasion capabilities by making it challenging for security filters to detect and mitigate attacks.
+
+## XSSInsecptor Obfuscation & Heuristic Benefits:
+
+- Enhanced Detection Accuracy: The heuristic logic fine-tunes the scanner to detect XSS vulnerabilities more accurately by concentrating on common attack patterns.
+- Reduced False Positives: The heuristic logic helps minimize false positives by identifying potential vulnerabilities based on known attack indicators.
+- Evasion and Bypass Capabilities: Obfuscation logic strengthens the scanner's evasion techniques, making it harder for security mechanisms to thwart attacks.
+- Comprehensive Testing: With obfuscation techniques, the scanner thoroughly tests potential vulnerabilities by employing multiple payload variations.
+- Improved Reliability: The combination of heuristic and obfuscation logic ensures a more reliable and effective XSS scanner, resulting in precise vulnerability identification and decreased security risks.
+
 ## POC of XSSInspector
 
 1. This proof of concept demonstrates a method for processing a large number of URLs rapidly and detecting cross-site scripting (XSS) vulnerabilities and their types in real-time.
