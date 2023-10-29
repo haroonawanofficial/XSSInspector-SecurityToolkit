@@ -104,4 +104,4 @@ XSSInspector obfuscation logic introduces various encoding techniques, including
 ## Usage Example
 
 ```bash
-python xssinspector.py -s --deepcrawl -o vulnerableurls.txt -d example.com -t 50 --report report.html
+python3 XSSInspector.py -t 50 --output vulnerable.txt -s --deepcrawl --report report_template.html -d testphp.vulnweb.com
