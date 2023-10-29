@@ -64,10 +64,10 @@ obfuscation_methods = [
     lambda payload: payload.replace("alert", "confirm") if payload else payload,
     lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,  # Hex encoding
     lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,  # Unicode encoding
-    lambda payload: payload.encode('base64').decode(),  # Base64 encoding
-    lambda payload: payload.encode('utf-16').decode(),  # UTF-16 encoding
-    lambda payload: payload.encode('utf-32').decode(),  # UTF-32 encoding
-    lambda payload: payload.encode('rot_13').decode(),  # ROT13 encoding
+    lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore'),  # Base64 encoding
+    lambda payload: payload.encode('utf-16').decode(errors='ignore'),  # UTF-16 encoding (with error handling)
+    lambda payload: payload.encode('utf-32').decode(errors='ignore'),  # UTF-32 encoding (with error handling)
+    lambda payload: payload.encode('rot_13').decode(errors='ignore'),  # ROT13 encoding
     lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,  # Percent encoding
     lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,  # HTML Entity encoding
     lambda payload: payload.replace('a', '\x00a').replace('l', '\x00c'),  # Null Byte encoding
