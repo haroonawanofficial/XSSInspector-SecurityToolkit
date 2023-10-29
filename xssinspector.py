@@ -1,4 +1,3 @@
-#no comment version
 import threading
 import sys
 import requests
@@ -36,11 +35,12 @@ xss_payloads = [
 ]
 
 obfuscation_methods = [
-    lambda payload: payload,
-    lambda payload: payload.replace("alert", "confirm"),
-    lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload),
-    lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload),
+    lambda payload: payload,  # No obfuscation
+    lambda payload: payload.replace("alert", "confirm") if payload else payload,
+    lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,  # Hex encoding
+    lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,  # Unicode encoding
 ]
+
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='Advanced XSS Reporter')
@@ -191,18 +191,62 @@ class XSSScanner:
 
     def scan_urls_for_xss(self, url, payload):
         vulnerable_urls = []
+
         for obfuscate_fn in obfuscation_methods:
             obfuscated_payload = obfuscate_fn(payload)
+            if obfuscated_payload is None:
+                continue  # Skip obfuscation methods that return None
+
             payload_url = url + "?" + obfuscated_payload
             print(f"[{current_time}] Testing URL: {payload_url} Cursor: {cursor}", end='\r')
             try:
                 response = requests.get(payload_url, verify=False, timeout=10)
+
                 if self.stop_scan:
                     return []
+
                 if response.status_code == 200 and "alert" in response.text:
                     vulnerable_urls.append(payload_url)
             except Exception as e:
                 pass
+
+        return vulnerable_urls
+
+    def test_xss_vulnerabilities(self, url, payload):
+        vulnerable_urls = []
+        if self.stop_scan:
+            return vulnerable_urls
+
+        best_obfuscation = None
+        max_successful_injections = 0
+
+        for obfuscate in obfuscation_methods:
+            obfuscated_payload = obfuscate(payload)
+
+            if obfuscated_payload:
+                payload_url = url + "?" + obfuscated_payload
+                print(f"[{current_time}] Testing URL: {payload_url} Cursor: {cursor}", end='\r')
+                try:
+                    response = requests.get(payload_url, verify=False, timeout=10)
+
+                    if self.stop_scan:
+                        return vulnerable_urls
+
+                    if response.status_code == 200 and "alert" in response.text:
+                        successful_injections = response.text.count("alert")
+                        if successful_injections > max_successful_injections:
+                            max_successful_injections = successful_injections
+                            best_obfuscation = obfuscate.__name__
+                        vulnerable_urls.append(payload_url)
+                except Exception as e:
+                    pass
+
+        if best_obfuscation:
+            print(f"[{current_time}] Suitable obfuscation method found for {url}: {best_obfuscation}")
+        else:
+            pass
+            #fprint(f"[{current_time}] No successful obfuscation method found for {url}")
+
         return vulnerable_urls
 
     def store_vulnerabilities_in_sqlite(self):
@@ -210,20 +254,24 @@ class XSSScanner:
         cursor = conn.cursor()
         cursor.execute("CREATE TABLE IF NOT EXISTS vulnerabilities (url TEXT)")
         conn.commit()
+
         for url in self.vulnerable_urls:
             cursor.execute("INSERT INTO vulnerabilities (url) VALUES (?)", (url,))
             conn.commit()
+
         conn.close()
 
     def generate_report(self):
         env = Environment(loader=FileSystemLoader('.'))
         template = env.get_template('report_template.html')
         report_content = template.render(vulnerable_urls=self.vulnerable_urls)
+
         with open(self.report_file, "w") as f:
             f.write(report_content)
 
 if __name__ == '__main__':
     arguments = get_arguments()
+
     if arguments.domain:
         print(f"[{current_time}] Collecting URLs from WaybackMachine, AlienVault OTX, CommonCrawl")
         crawl = PassiveCrawl(arguments.domain, arguments.want_subdomain, arguments.thread, arguments.deepcrawl)
@@ -234,9 +282,12 @@ if __name__ == '__main__':
         print("[!] Please Specify --domain or --list flag ..")
         print(f"[*] Type: {sys.argv[0]} --help")
         sys.exit()
-    scan = XSSScanner(final_url_list, arguments.thread, arguments.report_file)
-    vulnerable_urls = scan.start()
+
+    scan = XSSScanner(final_url_list, arguments.thread, arguments.report_file)  # Create XSSScanner object
+    vulnerable_urls = scan.start()  # Start scanning for XSS vulnerabilities
+
     print(f"[{current_time}] Total Links Audited: ", len(final_url_list))
+
     for url in vulnerable_urls:
         print(url)
     print(f"[{current_time}] Total Confirmed Cross Site Scripting Vulnerabilities: ", len(vulnerable_urls))
