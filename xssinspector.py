@@ -165,10 +165,10 @@ obfuscation_methods = [
     lambda payload: payload.encode('base64').decode(errors='ignore') if payload is not None else None,    # Base64 encoding
     lambda payload: payload.encode('utf-16le').decode(errors='ignore') if payload is not None else None,    # UTF-16 Little-Endian encoding
     lambda payload: payload.encode('utf-32le').decode(errors='ignore') if payload is not None else None,    # UTF-32 Little-Endian encoding
-    lambda payload: payload[::-1],  # Reverse the payload
-    lambda payload: payload.upper(),  # Convert to uppercase
-    lambda payload: payload.lower(),  # Convert to lowercase
-    lambda payload: payload.swapcase(),  # Swap case (upper to lower and vice versa)
+    lambda payload: payload[::-1] if payload is not None else payload,   # Reverse the payload
+    lambda payload: payload.upper() if payload is not None else payload,    # Convert to uppercase
+    lambda payload: payload.lower() if payload is not None else payload,    # Convert to lowercase
+    lambda payload: payload.swapcase() if payload is not None else payload,    # Swap case (upper to lower and vice versa)
     lambda payload: "".join(f"%u{ord(char):04X}" for char in payload) if payload else payload,  # Percent-Encoded Unicode
     lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,  # Percent-Encoded ASCII
   # Additional obfuscation methods
@@ -176,8 +176,8 @@ obfuscation_methods = [
     lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,  # Uppercase Percent-Encoded Unicode
     lambda payload: "".join(f"%{ord(char):02X}; " for char in payload) if payload else payload,  # Percent Encoding with Spaces
     lambda payload: "".join(f"%u{ord(char):04X}; " for char in payload) if payload else payload,  # Unicode Percent Encoding with Spaces
-    lambda payload: payload.replace('<', '&lt;').replace('>', '&gt;'),  # HTML Entity Encoding for < and >
-    lambda payload: payload.replace('"', '&quot;').replace('\'', '&#39;'),  # HTML Entity Encoding for " and '
+    lambda payload: payload.replace('<', '&lt;').replace('>', '&gt;') if payload is not None else payload,  # HTML Entity Encoding for < and >
+    lambda payload: payload.replace('"', '&quot;').replace('\'', '&#39;') if payload is not None else payload,  # HTML Entity Encoding for " and '
     lambda payload: "".join(f"\\{char}" for char in payload),  # Single Backslash Escaping
     lambda payload: "".join(f"\\\{char}" for char in payload),  # Double Backslash Escaping
     lambda payload: "".join(f"%{ord(char):X} " for char in payload) if payload else payload,  # Percent Encoding with Spaces
