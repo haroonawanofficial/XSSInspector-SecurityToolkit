@@ -428,7 +428,11 @@ if __name__ == '__main__':
     scan = XSSScanner(final_url_list, arguments.thread, arguments.report_file)  # Create XSSScanner object
     vulnerable_urls = scan.start()  # Start scanning for XSS vulnerabilities
 
-    print(f"[{current_time}] Total Links Audited: ", len(final_url_list))
+    total_links_audited = len(final_url_list)
+    with open('total_links_audited.txt', 'w') as file:
+        file.write(str(total_links_audited))  # Write the total number of links audited to a text file
+
+    print(f"[{current_time}] Total Links Audited: ", total_links_audited)
 
     for url in vulnerable_urls:
         print(url)
