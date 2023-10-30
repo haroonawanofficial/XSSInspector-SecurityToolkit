@@ -39,8 +39,10 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 1. In an effort to reduce false positives when hunting for XSS vulnerabilities, this tool employs a False Positive Damping approach.
 2. It automatically sends a HEAD request to the URL and checks the `Content-Type` header of the response. 
 3. The tool examines `Content-Type` header indicates that the URL points to a non-HTML or non-PHP file (e.g., images, non-web content), the tool bypasses the URL link.
-4. This approach helps filter out URLs that are unlikely to be vulnerable to XSS attacks, thus improving the accuracy of the scan.
-5. The tool is designed to enhance the efficiency and effectiveness of XSS vulnerability scanning.
+4. Parameter Analysis: For each URL, analyze its query parameters to identify parameters that may be related to file handling. This can include parameters like "file," "path," "image," "download," or other keywords that suggest file-related operations.
+5. Parameter Whitelisting: Create a whitelist of parameters that are known to be safe and not associated with file handling. You can maintain this whitelist in your code or in an external configuration file.
+6. Filtering: Before testing a payload against a URL, check if any of the query parameters match the file-related keywords. If a parameter matches, you may want to skip testing this payload against that URL to avoid false positives.
+
    
 ## Heuristic Logic:
 XSSInspector heuristic logic into the scanner allows it to analyze response content for indicators like "alert" messages and script tags, thus making it more adept at identifying potential XSS vulnerabilities. By focusing on these common XSS patterns, the scanner is more efficient in its detection approach, reducing false positives and enhancing its precision.
