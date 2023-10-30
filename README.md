@@ -102,7 +102,7 @@ vBase64 Encoding: Encodes the payload using Base64 encoding.
 
 - Windows/Mac/Linux GUI:
 
-![Alt text]([https://i.ibb.co/sWLnP0m/xssinecptorgui.png](https://i.ibb.co/fN7wy3Q/xssinecptorgui.png)
+![Alt text](https://i.ibb.co/fN7wy3Q/xssinecptorgui.png)
 
 - Example Running from Windows:
 
