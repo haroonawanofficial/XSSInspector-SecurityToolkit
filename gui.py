@@ -65,7 +65,7 @@ class XSSInspectorApp(QWidget):
         self.close_button.clicked.connect(self.close_app)
 
         # Create a QLabel for the link
-        self.link_label = QLabel('<b>XSS Inspector</b> by Haroon Awan | <a href="http://www.cyberzeus.pk">Cyberzeus.pk</a>', self)
+        self.link_label = QLabel('<b>XSS Inspector</b> by Haroon Ahmad Awan | <a href="http://www.cyberzeus.pk">Cyberzeus.pk</a>', self)
         self.link_label.setTextFormat(Qt.RichText)
         self.link_label.setTextInteractionFlags(Qt.TextBrowserInteraction)
         self.link_label.setOpenExternalLinks(True)
