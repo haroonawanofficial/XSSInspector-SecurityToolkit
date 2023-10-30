@@ -178,8 +178,8 @@ obfuscation_methods = [
     lambda payload: "".join(f"%u{ord(char):04X}; " for char in payload) if payload else payload,  # Unicode Percent Encoding with Spaces
     lambda payload: payload.replace('<', '&lt;').replace('>', '&gt;') if payload is not None else payload,  # HTML Entity Encoding for < and >
     lambda payload: payload.replace('"', '&quot;').replace('\'', '&#39;') if payload is not None else payload,  # HTML Entity Encoding for " and '
-    lambda payload: "".join(f"\\{char}" for char in payload),  # Single Backslash Escaping
-    lambda payload: "".join(f"\\\{char}" for char in payload),  # Double Backslash Escaping
+    lambda payload: "".join(f"\\{char}" for char in payload) if payload is not None else payload,  # Single Backslash Escaping
+    lambda payload: "".join(f"\\\{char}" for char in payload) if payload is not None else payload,  # Double Backslash Escaping
     lambda payload: "".join(f"%{ord(char):X} " for char in payload) if payload else payload,  # Percent Encoding with Spaces
     lambda payload: "".join(f"&#x{ord(char):X} " for char in payload) if payload else payload,  # HTML Entity Encoding with Spaces
 ]
