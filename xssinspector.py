@@ -11,6 +11,7 @@ import base64
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor
 from jinja2 import Environment, FileSystemLoader
+from urllib.parse import urlparse, parse_qs
 
 cursor = "|"
 
@@ -351,10 +352,22 @@ class XSSScanner:
         return self.vulnerable_urls
 
     def scan_urls_for_xss(self, url):
-            vulnerable_payloads = []
+        vulnerable_payloads = []
+        
+        # Define a list of keywords that suggest file-related parameters
+        file_related_keywords = ["file", "path", "image", "download"]
+
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
+
+        # Iterate through query parameters
+        for param, values in query_params.items():
+            if any(keyword in param.lower() for keyword in file_related_keywords):
+                # Skip this parameter, as it's likely related to file handling
+                continue
 
             for payload in xss_payloads:
-                payload_url = url + "?param=" + payload
+                payload_url = f"{url}?{param}={payload}"
                 try:
                     response = requests.get(payload_url, verify=False, timeout=10)
 
@@ -367,7 +380,7 @@ class XSSScanner:
                 except Exception as e:
                     pass
 
-            return vulnerable_payloads
+        return vulnerable_payloads
 
     def test_xss_vulnerabilities(self, url, payload):
         vulnerable_urls = []
