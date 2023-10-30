@@ -112,7 +112,7 @@ vBase64 Encoding: Encodes the payload using Base64 encoding.
 
 ![Alt text](https://i.ibb.co/Y3grD7q/Untitled2.png)
 
-- Reflected XSS (client side:
+- Reflected XSS (client side):
 
 ![Alt text](https://i.ibb.co/Brp2tDn/refected-xssinspector.png)
 
