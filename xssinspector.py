@@ -3,13 +3,14 @@ import sys
 import requests
 import argparse
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor
-from jinja2 import Environment, FileSystemLoader
 import sqlite3
 import signal
 from datetime import datetime
 import time
 import base64
+from functools import partial
+from concurrent.futures import ThreadPoolExecutor
+from jinja2 import Environment, FileSystemLoader
 
 cursor = "|"
 
@@ -204,6 +205,24 @@ def readTargetFromFile(filepath):
                 urls_list.append(urls.strip())
     return urls_list
 
+def start(self):
+    print(f"[{current_time}] Now implementing logics to capture XSS vulnerabilities on given links")
+    self.url_list = list(set(self.url_list))
+    
+    # Create a partially applied function for scanning with payloads
+    scan_urls_with_payload = partial(self.scan_urls_for_xss, payload=self.payload)
+
+    with ThreadPoolExecutor(max_workers=int(self.threadNumber)) as executor:
+        results = list(executor.map(self.scan_urls_for_xss, [(url, self.payload) for url in self.url_list]))
+    
+    self.vulnerable_urls = [url for sublist in results for url in sublist]
+    
+    if self.report_file:
+        self.store_vulnerabilities_in_sqlite()
+        self.generate_report()
+    
+    return self.vulnerable_urls
+
 class PassiveCrawl:
     def __init__(self, domain, want_subdomain, threadNumber, deepcrawl):
         self.domain = domain
@@ -324,35 +343,31 @@ class XSSScanner:
         print(f"[{current_time}] Now implementing logics to capture XSS vulnerabilities on given links")
         self.url_list = list(set(self.url_list))
         with ThreadPoolExecutor(max_workers=int(self.threadNumber)) as executor:
-            results = list(executor.map(lambda url: self.scan_urls_for_xss(url, self.payload), self.url_list))
+            results = list(executor.map(self.scan_urls_for_xss, self.url_list))
         self.vulnerable_urls = [url for sublist in results for url in sublist]
         if self.report_file:
             self.store_vulnerabilities_in_sqlite()
             self.generate_report()
         return self.vulnerable_urls
 
-    def scan_urls_for_xss(self, url, payload):
-        vulnerable_urls = []
+    def scan_urls_for_xss(self, url):
+            vulnerable_payloads = []
 
-        for obfuscate_fn in obfuscation_methods:
-            obfuscated_payload = obfuscate_fn(payload)
-            if obfuscated_payload is None:
-                continue  # Skip obfuscation methods that return None
+            for payload in xss_payloads:
+                payload_url = url + "?param=" + payload
+                try:
+                    response = requests.get(payload_url, verify=False, timeout=10)
 
-            payload_url = url + "?" + obfuscated_payload
-            print(f"[{current_time}] Testing URL: {payload_url} Cursor: {cursor}", end='\r')
-            try:
-                response = requests.get(payload_url, verify=False, timeout=10)
+                    if self.stop_scan:
+                        return vulnerable_payloads
 
-                if self.stop_scan:
-                    return []
+                    if response.status_code == 200 and payload in response.text:
+                        print(f"Potential XSS vulnerability found in URL: {payload_url} with payload: {payload}")
+                        vulnerable_payloads.append((payload_url, payload))
+                except Exception as e:
+                    pass
 
-                if response.status_code == 200 and "alert" in response.text:
-                    vulnerable_urls.append(payload_url)
-            except Exception as e:
-                pass
-
-        return vulnerable_urls
+            return vulnerable_payloads
 
     def test_xss_vulnerabilities(self, url, payload):
         vulnerable_urls = []
