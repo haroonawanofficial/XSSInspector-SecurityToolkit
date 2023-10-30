@@ -59,16 +59,16 @@ class XSSInspectorApp(QWidget):
         # Check the state of each checkbox and add corresponding arguments
         custom_args = []
         if self.reports_checkbox.isChecked():
-            custom_args.append("--reports")
+            custom_args.append("--report report_template.html")
         if self.threads_checkbox.isChecked():
-            custom_args.append("--threads")
+            custom_args.append("--thread 50")
         if self.include_subdomain_checkbox.isChecked():
-            custom_args.append("--include-subdomain")
+            custom_args.append("--subs")
         if self.deep_crawl_checkbox.isChecked():
-            custom_args.append("--deep-crawl")
+            custom_args.append("--deepcrawl")
 
         # Construct the command with custom arguments
-        command = ["python", "xssinspector.py", "--domain", domain] + custom_args
+        command = ["python3", "xssinspector.py", "--domain", domain] + custom_args
 
         # Simulate the scanning process
         # Replace this with your actual scanning code
