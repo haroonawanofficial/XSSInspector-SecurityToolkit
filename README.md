@@ -98,16 +98,22 @@ vBase64 Encoding: Encodes the payload using Base64 encoding.
 4. It performs lightning-fast processing.
 5. It automatically crawls URLs for vulnerable links and forms.
 
-Windows/Mac/Linux GUI:
+## Working Screenshots
+
+- Windows/Mac/Linux GUI:
+
 ![Alt text](https://i.ibb.co/sWLnP0m/xssinecptorgui.png)
 
-Example Running from Windows:
+- Example Running from Windows:
+
 ![Alt text](https://i.ibb.co/n6GJSJ1/Untitled.png)
 
-Stored XSS (server side):
+- Stored XSS (server side):
+
 ![Alt text](https://i.ibb.co/Y3grD7q/Untitled2.png)
 
-Reflected XSS (client side:
+- Reflected XSS (client side:
+
 ![Alt text](https://i.ibb.co/Brp2tDn/refected-xssinspector.png)
 
 
