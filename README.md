@@ -50,17 +50,34 @@ XSSInspector obfuscation logic introduces various encoding techniques, including
 
 ## Obfuscation Security Testing
 
-- Replace "alert" with "confirm": Replaces the string "alert" with "confirm" in the payload.
-- Hex Encoding: Encodes the payload using hexadecimal representation (e.g., \x41 for 'A').
-- Unicode Encoding: Encodes the payload using Unicode representation (e.g., \u0041 for 'A').
-- Base64 Encoding: Encodes the payload in Base64 format.
-- UTF-16 Encoding: Encodes the payload in UTF-16 format.
-- UTF-32 Encoding: Encodes the payload in UTF-32 format.
-- ROT13 Encoding: Applies ROT13 encoding to the payload.
-- Percent Encoding: Encodes the payload by replacing characters with their percent-encoded representations (e.g., %20 for space).
-- HTML Entity Encoding: Encodes the payload using HTML entity representations (e.g., &#65; for 'A').
-- Null Byte Encoding: Replaces characters with null bytes (e.g., replaces 'a' with '\x00a').
-
+- - No Obfuscation: This method keeps the payload as it is without any changes.
+- Replace "alert" with "confirm": If the payload contains the word "alert," it replaces it with "confirm."
+- Hex Encoding: Encodes the payload characters in hexadecimal format (e.g., \x41 for 'A').
+- Unicode Encoding: Encodes the payload characters in Unicode format (e.g., \u0041 for 'A').
+- Base64 Encoding: Encodes the payload using Base64 encoding.
+- UTF-16 Encoding (with error handling): Encodes the payload using UTF-16 encoding with error handling to handle character encoding issues.
+- UTF-32 Encoding (with error handling): Encodes the payload using UTF-32 encoding with error handling.
+- ROT13 Encoding (with error handling): Applies ROT13 encoding to the payload with error handling.
+- Percent Encoding: Encodes the payload using percent encoding (e.g., %20 for space).
+- HTML Entity Encoding: Replaces special characters in the payload with their corresponding HTML entities (e.g., &lt; for '<' and &gt; for '>').
+- Null Byte Encoding: Replaces 'a' with '\x00a' and 'l' with '\x00c' in the payload.
+vBase64 Encoding: Encodes the payload using Base64 encoding.
+- UTF-16 Little-Endian Encoding: Encodes the payload using UTF-16 Little-Endian encoding.
+- UTF-32 Little-Endian Encoding: Encodes the payload using UTF-32 Little-Endian encoding.
+- Reverse the Payload: Reverses the characters in the payload.
+- Convert to Uppercase: Changes the payload to uppercase.
+- Convert to Lowercase: Changes the payload to lowercase.
+- Swap Case: Swaps the case of characters in the payload (e.g., 'AaBb' becomes 'aAbB').
+- Uppercase Percent-Encoded Unicode: Encodes characters in the payload using uppercase Unicode percent encoding with 8-character hexadecimal values.
+- Lowercase Percent-Encoded Unicode: Encodes characters in the payload using lowercase Unicode percent encoding with 8-character hexadecimal values.
+- Percent Encoding with Spaces: Encodes the payload using percent encoding and adds a space character after each encoded character.
+- Unicode Percent Encoding with Spaces: Encodes the payload using Unicode percent encoding with 4-character hexadecimal values and adds a space character after each encoded character.
+- HTML Entity Encoding for < and >: Replaces the < and > characters in the payload with their corresponding HTML entity codes.
+- HTML Entity Encoding for " and ': Replaces double quotes (") and single quotes (') in the payload with their respective HTML entity codes.
+- Single Backslash Escaping: Escapes each character in the payload with a single backslash, such as \a, \b, \c, etc.
+- Double Backslash Escaping: Escapes each character in the payload with two backslashes, like \\a, \\b, \\c, etc.
+- Percent Encoding with Spaces: Encodes the payload characters using percent encoding and adds a space character after each encoded character.
+- HTML Entity Encoding with Spaces: Uses HTML entity encoding with 4-character hexadecimal values and adds a space character after each encoded character.
 
 ## XSSInsecptor Obfuscation & Heuristic Benefits:
 
