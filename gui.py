@@ -3,56 +3,15 @@ import os
 import threading
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QTextEdit, QLineEdit, QCheckBox, QFileDialog
 from PyQt5.QtGui import QTextCursor, QTextCharFormat, QColor
-from PyQt5.QtCore import QUrl, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QTimer, pyqtSlot, pyqtSignal
+from PyQt5.QtGui import QDesktopServices
 import subprocess
 from datetime import datetime
 import traceback
-from PyQt5.QtCore import QTimer
-from PyQt5.QtGui import QDesktopServices
-
-class ScanningThread(threading.Thread):
-    def __init__(self, command, update_results_text, scan_finished, outputReady, errorReady):
-        super(ScanningThread, self).__init__()
-        self.command = command
-        self.update_results_text = update_results_text
-        self.scan_finished = scan_finished
-        self.outputReady = outputReady
-        self.errorReady = errorReady
-        self.stopped = False
-
-    def stop_scan(self):
-        self.stopped = True
-
-    def run(self):
-        try:
-            process = subprocess.Popen(self.command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
-            while True:
-                if self.stopped:
-                    process.terminate()
-                    break
-                out_line = process.stdout.readline()
-                err_line = process.stderr.readline()
-                if not out_line and not err_line:
-                    break
-                if out_line:
-                    self.update_results_text(out_line)
-                    self.outputReady.emit(out_line)
-                if err_line:
-                    self.update_results_text(err_line)
-                    self.errorReady.emit(err_line)
-            self.scan_finished()
-        except subprocess.CalledProcessError as e:
-            error_msg = f"Error: {e}"
-            self.update_results_text(error_msg)
-            self.errorReady.emit(error_msg)
-            self.scan_finished()
 
 class XSSInspectorApp(QWidget):
-    outputReady = pyqtSignal(str)
-    errorReady = pyqtSignal(str)
-
     def __init__(self):
-        super(XSSInspectorApp, self).__init__()
+        super().__init__()
         self.initUI()
         self.scanning_thread = None
         os.environ['PYTHONUNBUFFERED'] = '1'
@@ -139,14 +98,21 @@ class XSSInspectorApp(QWidget):
             return
         command = ["python3", "xssinspector.py", "--domain", domain, "--list", url_list]
 
-        self.scanning_thread = ScanningThread(
-            command,
-            self.update_results_text,
-            self.scan_finished,
-            self.outputReady,
-            self.errorReady
-        )
+        # Create a thread to run xssinspector.py and capture output
+        self.scanning_thread = threading.Thread(target=self.run_scan, args=(command,))
         self.scanning_thread.start()
+
+    def run_scan(self, command):
+        try:
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            for line in process.stdout:
+                self.update_results_text(line)
+
+            process.wait()
+            self.scan_finished()
+        except Exception as e:
+            self.update_results_text(f"Error: {str(e)}")
+            self.scan_finished()
 
     @pyqtSlot(str)
     def update_results_text(self, output):
@@ -160,14 +126,8 @@ class XSSInspectorApp(QWidget):
 
     def close_app(self):
         if self.scanning_thread and self.scanning_thread.is_alive():
-            self.scanning_thread.stop_scan()
+            self.scanning_thread.stop()
         self.close()
-
-    def outputReady(self, output):
-        self.pending_updates.append(output)
-
-    def errorReady(self, error):
-        self.pending_updates.append(error)
 
     def open_link(self, url):
         QDesktopServices.openUrl(QUrl(url))
