@@ -1,13 +1,50 @@
+import threading
 import sys
 import os
-import threading
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QTextEdit, QLineEdit, QCheckBox, QFileDialog
-from PyQt5.QtGui import QTextCursor, QTextCharFormat, QColor
-from PyQt5.QtCore import QTimer, pyqtSlot, pyqtSignal
-from PyQt5.QtGui import QDesktopServices
 import subprocess
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QTextEdit, QLineEdit, QCheckBox, QFileDialog
+from PyQt5.QtGui import QTextCharFormat, QColor
+from PyQt5.QtCore import QTimer, pyqtSlot
+from PyQt5.QtGui import QTextCursor
+from PyQt5.QtCore import QUrl
+from PyQt5.QtCore import pyqtSignal, QObject
+from PyQt5.QtCore import Qt, QThread
+from PyQt5.QtGui import QDesktopServices
 from datetime import datetime
-import traceback
+
+# Create custom wrapper classes for QTextCursor and QTextCharFormat
+class CustomQTextCursor(QTextCursor):
+    pass
+
+class CustomQTextCharFormat(QTextCharFormat):
+    pass
+
+class ScanThread(QThread):
+    update_signal = pyqtSignal(str)
+
+    def __init__(self, command):
+        super().__init__()
+        self.command = command
+        self.stopped = False  # Initialize a flag to indicate if the thread is stopped
+        self.is_running = False  # Add a flag to track if the thread is running
+
+    def run(self):
+        self.is_running = True  # Thread is running
+        try:
+            process = subprocess.Popen(self.command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            for line in process.stdout:
+                if self.stopped:
+                    break
+                self.update_signal.emit(line)
+
+            process.wait()
+        except Exception as e:
+            self.update_signal.emit(f"Error: {str(e)}")
+        finally:
+            self.is_running = False  # Thread is no longer running
+
+    def stop_scan(self):
+        self.stopped = True  # Set the flag to stop the thread
 
 class XSSInspectorApp(QWidget):
     def __init__(self):
@@ -19,6 +56,13 @@ class XSSInspectorApp(QWidget):
         self.update_timer.timeout.connect(self.process_updates)
         self.pending_updates = []
 
+        # Register QTextCursor and QTextCharFormat using qRegisterMetaType
+        self.register_custom_types()
+
+    def register_custom_types(self):
+        text_cursor = QTextCursor(self.results_text.document())
+        char_format = text_cursor.charFormat()
+        
     def process_updates(self):
         if self.pending_updates:
             self.update_results_text("".join(self.pending_updates))
@@ -73,7 +117,7 @@ class XSSInspectorApp(QWidget):
 
     @pyqtSlot()
     def stop_scan(self):
-        if self.scanning_thread and self.scanning_thread.is_alive():
+        if self.scanning_thread and self.scanning_thread.is_running:
             self.scanning_thread.stop_scan()
             self.scan_button.setEnabled(True)
             self.stop_button.setEnabled(False)
@@ -99,9 +143,10 @@ class XSSInspectorApp(QWidget):
         command = ["python3", "xssinspector.py", "--domain", domain, "--list", url_list]
 
         # Create a thread to run xssinspector.py and capture output
-        self.scanning_thread = threading.Thread(target=self.run_scan, args=(command,))
+        self.scanning_thread = ScanThread(command)  # Create an instance of ScanThread
+        self.scanning_thread.update_signal.connect(self.update_results_text)  # Connect the signal
         self.scanning_thread.start()
-
+        
     def run_scan(self, command):
         try:
             process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
@@ -117,16 +162,16 @@ class XSSInspectorApp(QWidget):
     @pyqtSlot(str)
     def update_results_text(self, output):
         timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S] ")
-        cursor = self.results_text.textCursor()
+        cursor = QTextCursor(self.results_text.document())
         cursor.movePosition(QTextCursor.End)
-        cursor.insertText(timestamp, self.timestamp_format)
+        cursor.insertText(timestamp, QTextCharFormat())  # Use QTextCharFormat directly
         cursor.insertText(output)
         self.results_text.setTextCursor(cursor)
         self.results_text.verticalScrollBar().setValue(self.results_text.verticalScrollBar().maximum())
 
     def close_app(self):
-        if self.scanning_thread and self.scanning_thread.is_alive():
-            self.scanning_thread.stop()
+        if self.scanning_thread and self.scanning_thread.stopped:
+            self.scanning_thread.stop_scan()
         self.close()
 
     def open_link(self, url):
