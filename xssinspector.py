@@ -355,7 +355,7 @@ class XSSScanner:
         vulnerable_payloads = []
         
         # Define a list of keywords that suggest file-related parameters
-        file_related_keywords = ["file", "path", "image", "download"]
+        file_related_keywords = ["file", "path", "image", "download", "widget-scripts", "preloaded-modules", "jquery.magnific-popup", "widget-scripts", "jquery.magnific-popup", "preloaded-modules", "widget-scripts", "jquery.magnific-popup", "widget-scripts", "jquery.magnific-popup.min", "preloaded-modules.min", "jquery.magnific-popup.min"]
 
         parsed_url = urlparse(url)
         query_params = parse_qs(parsed_url.query)
