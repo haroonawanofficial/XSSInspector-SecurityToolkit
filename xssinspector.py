@@ -159,8 +159,7 @@ obfuscation_methods = [
     lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,  # Unicode encoding
     lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore') if payload is not None else None,  # Base64 encoding
     lambda payload: payload.encode('utf-16').decode(errors='ignore') if payload is not None else None,  # UTF-16 encoding (with error handling)
-    lambda payload: payload.encode('utf-32').decode(errors='ignore') if payload is not None else None,  # UTF-16 encoding (with error handling)
-    lambda payload: payload.encode('rot_13').decode(errors='ignore') if payload is not None else None,  # UTF-16 encoding (with error handling)
+    lambda payload: payload.encode('rot_13').decode(errors='ignore') if payload is not None else None,  # ROT13 encoding (with error handling)
     lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,  # Percent encoding
     lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,  # HTML Entity encoding
     lambda payload: payload.replace('a', '\x00a').replace('l', '\x00c') if payload is not None and isinstance(payload, str) else payload,  # Null Byte encoding
@@ -173,8 +172,6 @@ obfuscation_methods = [
     lambda payload: payload.swapcase() if payload is not None else payload,    # Swap case (upper to lower and vice versa)
     lambda payload: "".join(f"%u{ord(char):04X}" for char in payload) if payload else payload,  # Percent-Encoded Unicode
     lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,  # Percent-Encoded ASCII
-  # Additional obfuscation methods
-    lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,  # Uppercase Percent-Encoded Unicode
     lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,  # Uppercase Percent-Encoded Unicode
     lambda payload: "".join(f"%{ord(char):02X}; " for char in payload) if payload else payload,  # Percent Encoding with Spaces
     lambda payload: "".join(f"%u{ord(char):04X}; " for char in payload) if payload else payload,  # Unicode Percent Encoding with Spaces
@@ -184,7 +181,19 @@ obfuscation_methods = [
     lambda payload: "".join(f"\\\{char}" for char in payload) if payload is not None else payload,  # Double Backslash Escaping
     lambda payload: "".join(f"%{ord(char):X} " for char in payload) if payload else payload,  # Percent Encoding with Spaces
     lambda payload: "".join(f"&#x{ord(char):X} " for char in payload) if payload else payload,  # HTML Entity Encoding with Spaces
-]
+    lambda payload: payload.replace('1', 'I').replace('0', 'O') if payload is not None and isinstance(payload, str) else payload,  # Replace 1 with I and 0 with O
+    lambda payload: "".join(f"%{ord(char):02x}" for char in payload) if payload else payload,  # Hexadecimal Percent Encoding
+    lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,  # Unicode Escape Sequence
+    lambda payload: payload.encode('utf-32be').decode(errors='ignore') if payload is not None else None,  # UTF-32 Big-Endian Encoding
+    lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,  # Uppercase Percent-Encoded Unicode
+    lambda payload: "".join(f"%x{ord(char):08X}" for char in payload) if payload else payload,  # Hexadecimal Unicode Encoding
+    lambda payload: "".join(f"\\x{ord(char):02X}" for char in payload) if payload else payload,  # Double Hex Encoding
+    lambda payload: "".join(f"\\x{ord(char):02X} " for char in payload) if payload else payload,  # Double Hex Encoding with Spaces
+    lambda payload: "".join(f"\\u{ord(char):04X} " for char in payload) if payload else payload,  # Double Unicode Encoding with Spaces
+    lambda payload: "+".join(payload.split()) if payload else payload,
+    lambda payload: payload.replace('\x00', '') if payload is not None and isinstance(payload, str) else payload,  # Remove Null Bytes
+  # Additional obfuscation methods
+    ]
 
 def get_arguments():
     parser = argparse.ArgumentParser(description='Advanced XSS Reporter')
@@ -355,7 +364,7 @@ class XSSScanner:
         vulnerable_payloads = []
         
         # Define a list of keywords that suggest file-related parameters
-        file_related_keywords = ["file", "path", "image", "download", "widget-scripts", "preloaded-modules", "jquery.magnific-popup", "widget-scripts", "jquery.magnific-popup", "preloaded-modules", "widget-scripts", "jquery.magnific-popup", "widget-scripts", "jquery.magnific-popup.min", "preloaded-modules.min", "jquery.magnific-popup.min"]
+        file_related_keywords = ["file", "path", "image", "jquery.magnific-popup.min", "jquery.magnific-popup", "jquery", "jquery.magnific-popup.min.js", "preloaded-modules.min.js", "download", "preloaded-modules.min", "widget-scripts", "preloaded-modules", "jquery.magnific-popup", "widget-scripts", "jquery.magnific-popup", "preloaded-modules", "widget-scripts", "jquery.magnific-popup", "widget-scripts", "jquery.magnific-popup.min", "preloaded", "preload", "preloaded-modules.min", "jquery.magnific-popup.min"]
 
         parsed_url = urlparse(url)
         query_params = parse_qs(parsed_url.query)
