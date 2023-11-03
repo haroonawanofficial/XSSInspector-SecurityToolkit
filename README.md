@@ -34,7 +34,7 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
   
 - **Final Report**: The tool generates detailed HTML reports with identified vulnerabilities, making it easier to address security concerns.
 
-## False Positive Damp Approach
+## False Positive Reducation
 
 1. In an effort to reduce false positives when hunting for XSS vulnerabilities, this tool employs a False Positive Damping approach.
 2. It automatically sends a HEAD request to the URL and checks the `Content-Type` header of the response. 
@@ -44,13 +44,14 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 6. Filtering: Before testing a payload against a URL, it checks if any of the query parameters match the file-related keywords. 
 
    
-## Heuristic Logic:
-XSSInspector heuristic logic into the scanner allows it to analyze response content for indicators like "alert" messages and script tags, thus making it more adept at identifying potential XSS vulnerabilities. By focusing on these common XSS patterns, the scanner is more efficient in its detection approach, reducing false positives and enhancing its precision.
+## Enahcned Heuristic & Obfuscation Structure and Logic:
+- Enhanced Detection Accuracy: The heuristic logic fine-tunes the scanner to detect XSS vulnerabilities more accurately by concentrating on common attack patterns.
+- Reduced False Positives: The heuristic logic helps minimize false positives by identifying potential vulnerabilities based on known attack indicators.
+- Evasion and Bypass Capabilities: Obfuscation logic strengthens the scanner's evasion techniques, making it harder for security mechanisms to thwart attacks.
+- Comprehensive Testing: With obfuscation techniques, the scanner thoroughly tests potential vulnerabilities by employing multiple payload variations.
+- Improved Reliability: The combination of heuristic and obfuscation logic ensures a more reliable and effective XSS scanner, resulting in precise vulnerability identification and decreased security risks.
 
-## Obfuscation Logic:
-XSSInspector obfuscation logic introduces various encoding techniques, including hex encoding, unicode encoding, base64 encoding, double encoding, and more, to generate a wide range of obfuscated payloads. This diversification of payloads significantly improves the scanner's evasion capabilities by making it challenging for security filters to detect and mitigate attacks.
-
-## Obfuscation Bypassing 
+## Obfuscations with Bypassing (46 special modes are supported built-in)
 
 - No obfuscation: Returns the input payload as-is.
 - Replace "alert" with "confirm": Replaces "alert" with "confirm" in the payload.
@@ -99,14 +100,6 @@ XSSInspector obfuscation logic introduces various encoding techniques, including
 - Double Unicode Encoding with Semicolon: Encodes characters with double Unicode escape sequences and semicolons.
 - Remove Null Bytes: Removes null bytes from the payload.
 - Using the '+' operator to break down payload.
-  
-## XSSInsecptor Obfuscation & Heuristic Benefits:
-
-- Enhanced Detection Accuracy: The heuristic logic fine-tunes the scanner to detect XSS vulnerabilities more accurately by concentrating on common attack patterns.
-- Reduced False Positives: The heuristic logic helps minimize false positives by identifying potential vulnerabilities based on known attack indicators.
-- Evasion and Bypass Capabilities: Obfuscation logic strengthens the scanner's evasion techniques, making it harder for security mechanisms to thwart attacks.
-- Comprehensive Testing: With obfuscation techniques, the scanner thoroughly tests potential vulnerabilities by employing multiple payload variations.
-- Improved Reliability: The combination of heuristic and obfuscation logic ensures a more reliable and effective XSS scanner, resulting in precise vulnerability identification and decreased security risks.
 
 
 ## POC of XSSInspector
