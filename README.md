@@ -41,110 +41,110 @@ The XSSInspector is a powerful security tool designed to find Cross-Site Scripti
 6. Filtering: Before testing a payload against a URL, it checks if any of the query parameters match the file-related keywords. 
 
    
-## Enahcned Heuristic & Obfuscation Structure and Logic:
+## Heuristic & Obfuscation Structure and Logic:
 - Enhanced Detection Accuracy: The heuristic logic fine-tunes the scanner to detect XSS vulnerabilities more accurately by concentrating on common attack patterns.
 - Reduced False Positives: The heuristic logic helps minimize false positives by identifying potential vulnerabilities based on known attack indicators.
 - Evasion and Bypass Capabilities: Obfuscation logic strengthens the scanner's evasion techniques, making it harder for security mechanisms to thwart attacks.
 - Comprehensive Testing: With obfuscation techniques, the scanner thoroughly tests potential vulnerabilities by employing multiple payload variations.
 - Improved Reliability: The combination of heuristic and obfuscation logic ensures a more reliable and effective XSS scanner, resulting in precise vulnerability identification and decreased security risks.
 
-## Obfuscations with Bypassing (92 special modes are supported built-in)
+## Obfuscations with Bypassing (96 special modes are supported built-in)
 
 - Parameter pollution built-in; software auto use it when necessary.
-- 1. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-- 2. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
-- 3. Base64 encode the payload
-- 4. Encode the payload in UTF-16
-- 5. Encode the payload with ROT13
-- 6. Obfuscate with percent-encoded characters (e.g., %HH)
-- 7. Obfuscate with HTML entity references (e.g., &-xHH;)
-- 8. Replace 'a' with null character '\x00a' and 'l' with '\x00c' (if a string)
-- 9. Encode the payload in UTF-16LE
-- 10. Encode the payload in UTF-32LE
-- 11. Reverse the payload
-- 12. Convert payload to uppercase
-- 13. Convert payload to lowercase
-- 14. Swap case of the payload characters
-- 15. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-- 16. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
-- 17. Encode the payload in UTF-32BE
-- 18. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
-- 19. Obfuscate with hexadecimal escape sequences (e.g., \xHHHHHHHH)
-- 20. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-- 21. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-- 22. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
-- 23. Join words with plus symbols
-- 24. Remove null characters (if a string)
-- 25. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-- 26. Replace '<' with '&lt;' and '>' with '&gt;'
-- 27. Replace double quotes and single quotes with HTML entity references
-- 28. Obfuscate with backslashes (e.g., \char)
-- 29. Obfuscate with double backslashes (e.g., \\char)
-- 30. Obfuscate with percent-encoded characters (e.g., %uHHHH)
-- 31. Obfuscate with percent-encoded characters (e.g., %HH)
-- 32. Obfuscate with Unicode escape sequences (e.g., \UHHHHHHHH)
-- 33. Obfuscate with percent-encoded characters (e.g., %HH; )
-- 34. Obfuscate with percent-encoded characters (e.g., %uHHHH; )
-- 35. Obfuscate with percent-encoded characters (e.g., %HH )
-- 36. Obfuscate with HTML entity references (e.g., &-xHH;)
-- 37. Replace '1' with 'I' and '0' with 'O' (if a string)
-- 38. Obfuscate with percent-encoded characters (e.g., %HH)
-- 39. Obfuscate with HTML entity references (e.g., &-xHH;)
-- 40. Replace 'a' with null character '\x00a' and 'l' with '\x00c' (if a string)
-- 41. Encode the payload in UTF-16LE
-- 42. Encode the payload in UTF-32LE
-- 43. Obfuscate with percent-encoded characters (e.g., %uHHHH; )
-- 44. Replace '<' with '&lt;' and '>' with '&gt;'
-- 45. Encode the payload in UTF-32BE
-- 46. Remove null characters (if a string)
-- 47. Obfuscate with HTML entities for special characters
-- 48. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-- 49. Obfuscate with octal escape sequences (e.g., \ooo)
-- 50. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
-- 51. Obfuscate with HTML entity references (e.g., &-xHH;)
-- 52. Obfuscate with URL encoding
-- 53. Obfuscate with base64 encoding
-- 54. Obfuscate with double URL encoding
-- 55. Obfuscate with HTML entity references (e.g., &-HHHH;)
-- 56. Obfuscate with HTML entity references (e.g., &amp;HHHH;)
-- 57. Obfuscate with mixed character encoding (e.g., %uHH00)
-- 58. Obfuscate with URL encoding, lowercase
-- 59. Obfuscate with URL encoding, uppercase
-- 60. Obfuscate with hexadecimal escape sequences, space-separated (e.g., \xHH )
-- 61. Obfuscate with Unicode escape sequences, space-separated (e.g., \uHHHH )
-- 62. Obfuscate with base64 encoding, stripping padding characters
-- 63. Obfuscate with HTML entity references, breaking it into multiple entities
-- 64. Obfuscate with HTML entity references, breaking it into multiple entities
-- 65. Obfuscate with HTML entity references, mixing it with hexadecimal encoding
-- 66. Obfuscate with base64 encoding, using an alternate encoding scheme
-- 67. Obfuscate with base64 encoding, using an alternate encoding scheme and stripping padding characters
-- 68. Obfuscate with hexadecimal escape sequences, combining with spaces (e.g., \xHH\xHH)
-- 69. Obfuscate with Unicode escape sequences, combining with spaces (e.g., \uHHHH\uHHHH)
-- 70. Obfuscate with base64 encoding, using an alternate encoding scheme and adding custom padding
-- 71. Obfuscate with hexadecimal escape sequences, using curly braces (e.g., \x{HH})
-- 72. Obfuscate with Unicode escape sequences, using curly braces (e.g., \u{HHHH})
-- 73. Obfuscate with hexadecimal escape sequences, combining with curly braces (e.g., \x{HH}\x{HH})
-- 74. Obfuscate with Unicode escape sequences, combining with curly braces (e.g., \u{HHHH}\u{HHHH})
-- 75. Obfuscate with hexadecimal escape sequences, using parentheses (e.g., \x(HH))
-- 76. Obfuscate with Unicode escape sequences, using parentheses (e.g., \u(HHHH))
-- 77. Obfuscate with hexadecimal escape sequences, combining with parentheses (e.g., \x(HH)\x(HH))
-- 78. Obfuscate with Unicode escape sequences, combining with parentheses (e.g., \u(HHHH)\u(HHHH))
-- 79. Obfuscate with hexadecimal escape sequences, using square brackets (e.g., \x[HH])
-- 80. Obfuscate with Unicode escape sequences, using square brackets (e.g., \u[HHHH])
-- 81. Obfuscate with hexadecimal escape sequences, combining with square brackets (e.g., \x[HH]\x[HH])
-- 82. Obfuscate with Unicode escape sequences, combining with square brackets (e.g., \u[HHHH]\u[HHHH])
-- 83. Obfuscate with hexadecimal escape sequences, using angle brackets (e.g., \x<HH>)
-- 84. Obfuscate with Unicode escape sequences, using angle brackets (e.g., \u<HHHH>)
-- 85. Obfuscate with hexadecimal escape sequences, combining with angle brackets (e.g., \x<HH>\x<HH>)
-- 86. Obfuscate with Unicode escape sequences, combining with angle brackets (e.g., \u<HHHH>\u<HHHH>)
-- 87. Obfuscate with hexadecimal escape sequences, using square brackets and spaces (e.g., \x[HH] )
-- 88. Obfuscate with Unicode escape sequences, using square brackets and spaces (e.g., \u[HHHH] )
-- 89. Obfuscate with hexadecimal escape sequences, combining with square brackets and spaces (e.g., \x[HH] \x[HH] )
-- 90. Obfuscate with Unicode escape sequences, combining with square brackets and spaces (e.g., \u[HHHH] \u[HHHH] )
-- 91. Obfuscate with hexadecimal escape sequences, using angle brackets and spaces (e.g., \x<HH> )
-- 92. Obfuscate with Unicode escape sequences, using angle brackets and spaces (e.g., \u<HHHH> )
-- 93. Obfuscate with hexadecimal escape sequences, combining with angle brackets and spaces (e.g., \x<HH> \x<HH> )
-- 94. Obfuscate with Unicode escape sequences, combining with angle brackets and spaces (e.g., \u<HHHH> \u<HHHH> )
+- Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+- Obfuscate with Unicode escape sequences (e.g., \uHHHH)
+- Base64 encode the payload
+- Encode the payload in UTF-16
+- Encode the payload with ROT13
+- Obfuscate with percent-encoded characters (e.g., %HH)
+- Obfuscate with HTML entity references (e.g., &-xHH;)
+- Replace 'a' with null character '\x00a' and 'l' with '\x00c' (if a string)
+- Encode the payload in UTF-16LE
+- Encode the payload in UTF-32LE
+- Reverse the payload
+- Convert payload to uppercase
+- Convert payload to lowercase
+- Swap case of the payload characters
+- Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+- Obfuscate with Unicode escape sequences (e.g., \uHHHH)
+- Encode the payload in UTF-32BE
+- Obfuscate with Unicode escape sequences (e.g., \uHHHH)
+- Obfuscate with hexadecimal escape sequences (e.g., \xHHHHHHHH)
+- Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+- Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+- Obfuscate with Unicode escape sequences (e.g., \uHHHH)
+- Join words with plus symbols
+- Remove null characters (if a string)
+- Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+- Replace '<' with '&lt;' and '>' with '&gt;'
+- Replace double quotes and single quotes with HTML entity references
+- Obfuscate with backslashes (e.g., \char)
+- Obfuscate with double backslashes (e.g., \\char)
+- Obfuscate with percent-encoded characters (e.g., %uHHHH)
+- Obfuscate with percent-encoded characters (e.g., %HH)
+- Obfuscate with Unicode escape sequences (e.g., \UHHHHHHHH)
+- Obfuscate with percent-encoded characters (e.g., %HH; )
+- Obfuscate with percent-encoded characters (e.g., %uHHHH; )
+- Obfuscate with percent-encoded characters (e.g., %HH )
+- Obfuscate with HTML entity references (e.g., &-xHH;)
+- Replace '1' with 'I' and '0' with 'O' (if a string)
+- Obfuscate with percent-encoded characters (e.g., %HH)
+- Obfuscate with HTML entity references (e.g., &-xHH;)
+- Replace 'a' with null character '\x00a' and 'l' with '\x00c' (if a string)
+- Encode the payload in UTF-16LE
+- Encode the payload in UTF-32LE
+- Obfuscate with percent-encoded characters (e.g., %uHHHH; )
+- Replace '<' with '&lt;' and '>' with '&gt;'
+- Encode the payload in UTF-32BE
+- Remove null characters (if a string)
+- Obfuscate with HTML entities for special characters
+- Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+- Obfuscate with octal escape sequences (e.g., \ooo)
+- Obfuscate with Unicode escape sequences (e.g., \uHHHH)
+- Obfuscate with HTML entity references (e.g., &-xHH;)
+- Obfuscate with URL encoding
+- Obfuscate with base64 encoding
+- Obfuscate with double URL encoding
+- Obfuscate with HTML entity references (e.g., &-HHHH;)
+- Obfuscate with HTML entity references (e.g., &amp;HHHH;)
+- Obfuscate with mixed character encoding (e.g., %uHH00)
+- Obfuscate with URL encoding, lowercase
+- Obfuscate with URL encoding, uppercase
+- Obfuscate with hexadecimal escape sequences, space-separated (e.g., \xHH )
+- Obfuscate with Unicode escape sequences, space-separated (e.g., \uHHHH )
+- Obfuscate with base64 encoding, stripping padding characters
+- Obfuscate with HTML entity references, breaking it into multiple entities
+- Obfuscate with HTML entity references, breaking it into multiple entities
+- Obfuscate with HTML entity references, mixing it with hexadecimal encoding
+- Obfuscate with base64 encoding, using an alternate encoding scheme
+- Obfuscate with base64 encoding, using an alternate encoding scheme and stripping padding characters
+- Obfuscate with hexadecimal escape sequences, combining with spaces (e.g., \xHH\xHH)
+- Obfuscate with Unicode escape sequences, combining with spaces (e.g., \uHHHH\uHHHH)
+- Obfuscate with base64 encoding, using an alternate encoding scheme and adding custom padding
+- Obfuscate with hexadecimal escape sequences, using curly braces (e.g., \x{HH})
+- Obfuscate with Unicode escape sequences, using curly braces (e.g., \u{HHHH})
+- Obfuscate with hexadecimal escape sequences, combining with curly braces (e.g., \x{HH}\x{HH})
+- Obfuscate with Unicode escape sequences, combining with curly braces (e.g., \u{HHHH}\u{HHHH})
+- Obfuscate with hexadecimal escape sequences, using parentheses (e.g., \x(HH))
+- Obfuscate with Unicode escape sequences, using parentheses (e.g., \u(HHHH))
+- Obfuscate with hexadecimal escape sequences, combining with parentheses (e.g., \x(HH)\x(HH))
+- Obfuscate with Unicode escape sequences, combining with parentheses (e.g., \u(HHHH)\u(HHHH))
+- Obfuscate with hexadecimal escape sequences, using square brackets (e.g., \x[HH])
+- Obfuscate with Unicode escape sequences, using square brackets (e.g., \u[HHHH])
+- Obfuscate with hexadecimal escape sequences, combining with square brackets (e.g., \x[HH]\x[HH])
+- Obfuscate with Unicode escape sequences, combining with square brackets (e.g., \u[HHHH]\u[HHHH])
+- Obfuscate with hexadecimal escape sequences, using angle brackets (e.g., \x<HH>)
+- Obfuscate with Unicode escape sequences, using angle brackets (e.g., \u<HHHH>)
+- Obfuscate with hexadecimal escape sequences, combining with angle brackets (e.g., \x<HH>\x<HH>)
+- Obfuscate with Unicode escape sequences, combining with angle brackets (e.g., \u<HHHH>\u<HHHH>)
+- Obfuscate with hexadecimal escape sequences, using square brackets and spaces (e.g., \x[HH] )
+- Obfuscate with Unicode escape sequences, using square brackets and spaces (e.g., \u[HHHH] )
+- Obfuscate with hexadecimal escape sequences, combining with square brackets and spaces (e.g., \x[HH] \x[HH] )
+- Obfuscate with Unicode escape sequences, combining with square brackets and spaces (e.g., \u[HHHH] \u[HHHH] )
+- Obfuscate with hexadecimal escape sequences, using angle brackets and spaces (e.g., \x<HH> )
+- Obfuscate with Unicode escape sequences, using angle brackets and spaces (e.g., \u<HHHH> )
+- Obfuscate with hexadecimal escape sequences, combining with angle brackets and spaces (e.g., \x<HH> \x<HH> )
+- Obfuscate with Unicode escape sequences, combining with angle brackets and spaces (e.g., \u<HHHH> \u<HHHH> )
 
 ## Screenshots
 
