@@ -1,3 +1,4 @@
+import base64
 import threading
 import sys
 import requests
@@ -153,46 +154,290 @@ xss_payloads = [
 ]
 
 obfuscation_methods = [
-    lambda payload: payload,  # No obfuscation
-    lambda payload: payload.replace("alert", "confirm") if payload else payload,
-    lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,  # Hex encoding
-    lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,  # Unicode encoding
-    lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore') if payload is not None else None,  # Base64 encoding
-    lambda payload: payload.encode('utf-16').decode(errors='ignore') if payload is not None else None,  # UTF-16 encoding (with error handling)
-    lambda payload: payload.encode('rot_13').decode(errors='ignore') if payload is not None else None,  # ROT13 encoding (with error handling)
-    lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,  # Percent encoding
-    lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,  # HTML Entity encoding
-    lambda payload: payload.replace('a', '\x00a').replace('l', '\x00c') if payload is not None and isinstance(payload, str) else payload,  # Null Byte encoding
-    lambda payload: payload.encode('base64').decode(errors='ignore') if payload is not None else None,    # Base64 encoding
-    lambda payload: payload.encode('utf-16le').decode(errors='ignore') if payload is not None else None,    # UTF-16 Little-Endian encoding
-    lambda payload: payload.encode('utf-32le').decode(errors='ignore') if payload is not None else None,    # UTF-32 Little-Endian encoding
-    lambda payload: payload[::-1] if payload is not None else payload,   # Reverse the payload
-    lambda payload: payload.upper() if payload is not None else payload,    # Convert to uppercase
-    lambda payload: payload.lower() if payload is not None else payload,    # Convert to lowercase
-    lambda payload: payload.swapcase() if payload is not None else payload,    # Swap case (upper to lower and vice versa)
-    lambda payload: "".join(f"%u{ord(char):04X}" for char in payload) if payload else payload,  # Percent-Encoded Unicode
-    lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,  # Percent-Encoded ASCII
-    lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,  # Uppercase Percent-Encoded Unicode
-    lambda payload: "".join(f"%{ord(char):02X}; " for char in payload) if payload else payload,  # Percent Encoding with Spaces
-    lambda payload: "".join(f"%u{ord(char):04X}; " for char in payload) if payload else payload,  # Unicode Percent Encoding with Spaces
-    lambda payload: payload.replace('<', '&lt;').replace('>', '&gt;') if payload is not None else payload,  # HTML Entity Encoding for < and >
-    lambda payload: payload.replace('"', '&quot;').replace('\'', '&#39;') if payload is not None else payload,  # HTML Entity Encoding for " and '
-    lambda payload: "".join(f"\\{char}" for char in payload) if payload is not None else payload,  # Single Backslash Escaping
-    lambda payload: "".join(f"\\\{char}" for char in payload) if payload is not None else payload,  # Double Backslash Escaping
-    lambda payload: "".join(f"%{ord(char):X} " for char in payload) if payload else payload,  # Percent Encoding with Spaces
-    lambda payload: "".join(f"&#x{ord(char):X} " for char in payload) if payload else payload,  # HTML Entity Encoding with Spaces
-    lambda payload: payload.replace('1', 'I').replace('0', 'O') if payload is not None and isinstance(payload, str) else payload,  # Replace 1 with I and 0 with O
-    lambda payload: "".join(f"%{ord(char):02x}" for char in payload) if payload else payload,  # Hexadecimal Percent Encoding
-    lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,  # Unicode Escape Sequence
-    lambda payload: payload.encode('utf-32be').decode(errors='ignore') if payload is not None else None,  # UTF-32 Big-Endian Encoding
-    lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,  # Uppercase Percent-Encoded Unicode
-    lambda payload: "".join(f"%x{ord(char):08X}" for char in payload) if payload else payload,  # Hexadecimal Unicode Encoding
-    lambda payload: "".join(f"\\x{ord(char):02X}" for char in payload) if payload else payload,  # Double Hex Encoding
-    lambda payload: "".join(f"\\x{ord(char):02X} " for char in payload) if payload else payload,  # Double Hex Encoding with Spaces
-    lambda payload: "".join(f"\\u{ord(char):04X} " for char in payload) if payload else payload,  # Double Unicode Encoding with Spaces
-    lambda payload: "+".join(payload.split()) if payload else payload,
-    lambda payload: payload.replace('\x00', '') if payload is not None and isinstance(payload, str) else payload,  # Remove Null Bytes
-  # Additional obfuscation methods
+
+        lambda payload: payload,  # No obfuscation
+
+        # 1. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+        lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,
+
+        # 2. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
+        lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,
+
+        # 3. Base64 encode the payload
+        lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore') if payload is not None else None,
+
+        # 4. Encode the payload in UTF-16
+        lambda payload: payload.encode('utf-16').decode(errors='ignore') if payload is not None else None,
+
+        # 5. Encode the payload with ROT13
+        lambda payload: payload.encode('rot_13').decode(errors='ignore') if payload is not None else None,
+
+        # 6. Obfuscate with percent-encoded characters (e.g., %HH)
+        lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,
+
+        # 7. Obfuscate with HTML entity references (e.g., &#xHH;)
+        lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,
+
+        # 8. Replace 'a' with null character '\x00a' and 'l' with '\x00c' (if a string)
+        lambda payload: payload.replace('a', '\x00a').replace('l', '\x00c') if payload is not None and isinstance(payload, str) else payload,
+
+        # 9. Encode the payload in UTF-16LE
+        lambda payload: payload.encode('utf-16le').decode(errors='ignore') if payload is not None else None,
+
+        # 10. Encode the payload in UTF-32LE
+        lambda payload: payload.encode('utf-32le').decode(errors='ignore') if payload is not None else None,
+
+        # 11. Reverse the payload
+        lambda payload: payload[::-1] if payload is not None else payload,
+
+        # 12. Convert payload to uppercase
+        lambda payload: payload.upper() if payload is not None else payload,
+
+        # 13. Convert payload to lowercase
+        lambda payload: payload.lower() if payload is not None else payload,
+
+        # 14. Swap case of the payload characters
+        lambda payload: payload.swapcase() if payload is not None else payload,
+
+        # 15. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+        lambda payload: "".join(f"%{ord(char):02x}" for char in payload) if payload else payload,
+
+        # 16. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
+        lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,
+
+        # 17. Encode the payload in UTF-32BE
+        lambda payload: payload.encode('utf-32be').decode(errors='ignore') if payload is not None else None,
+
+        # 18. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
+        lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,
+
+        # 19. Obfuscate with hexadecimal escape sequences (e.g., \xHHHHHHHH)
+        lambda payload: "".join(f"%x{ord(char):08X}" for char in payload) if payload else payload,
+
+        # 20. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+        lambda payload: "".join(f"\\x{ord(char):02X}" for char in payload) if payload else payload,
+
+        # 21. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+        lambda payload: "".join(f"\\x{ord(char):02X} " for char in payload) if payload else payload,
+
+        # 22. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
+        lambda payload: "".join(f"\\u{ord(char):04X} " for char in payload) if payload else payload,
+
+        # 23. Join words with plus symbols
+        lambda payload: "+".join(payload.split()) if payload else payload,
+
+        # 24. Remove null characters (if a string)
+        lambda payload: payload.replace('\x00', '') if payload is not None and isinstance(payload, str) else payload,
+
+        # 25. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+        lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,
+
+        # 26. Replace '<' with '&lt;' and '>' with '&gt;'
+        lambda payload: payload.replace('<', '&lt;').replace('>', '&gt;') if payload else payload,
+
+        # 27. Replace double quotes and single quotes with HTML entity references
+        lambda payload: payload.replace('"', '&quot;').replace('\'', '&#39;') if payload else payload,
+
+        # 28. Obfuscate with backslashes (e.g., \char)
+        lambda payload: "".join(f"\\{char}" for char in payload) if payload else payload,
+
+        # 29. Obfuscate with double backslashes (e.g., \\char)
+        lambda payload: "".join(f"\\\{char}" for char in payload) if payload else payload,
+
+        # 30. Obfuscate with percent-encoded characters (e.g., %uHHHH)
+        lambda payload: "".join(f"%u{ord(char):04X}" for char in payload) if payload else payload,
+
+        # 31. Obfuscate with percent-encoded characters (e.g., %HH)
+        lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,
+
+        # 32. Obfuscate with Unicode escape sequences (e.g., \UHHHHHHHH)
+        lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,
+
+        # 33. Obfuscate with percent-encoded characters (e.g., %HH; )
+        lambda payload: "".join(f"%{ord(char):02X}; " for char in payload) if payload else payload,
+
+        # 34. Obfuscate with percent-encoded characters (e.g., %uHHHH; )
+        lambda payload: "".join(f"%u{ord(char):04X}; " for char in payload) if payload else payload,
+
+        # 35. Obfuscate with percent-encoded characters (e.g., %HH )
+        lambda payload: "".join(f"%{ord(char):X} " for char in payload) if payload else payload,
+
+        # 36. Obfuscate with HTML entity references (e.g., &#xHH;)
+        lambda payload: "".join(f"&#x{ord(char):X} " for char in payload) if payload else payload,
+
+        # 37. Replace '1' with 'I' and '0' with 'O' (if a string)
+        lambda payload: payload.replace('1', 'I').replace('0', 'O') if payload else payload,
+
+        # 38. Obfuscate with percent-encoded characters (e.g., %HH)
+        lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,
+
+        # 39. Obfuscate with HTML entity references (e.g., &#xHH;)
+        lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,
+
+        # 40. Replace 'a' with null character '\x00a' and 'l' with '\x00c' (if a string)
+        lambda payload: ''.join(['\x00a' if char == 'a' else '\x00c' if char == 'l' else char for char in payload]) if payload else payload,
+
+        # 41. Encode the payload in UTF-16LE
+        lambda payload: payload.encode('utf-16le').decode(errors='ignore') if payload else payload,
+
+        # 42. Encode the payload in UTF-32LE
+        lambda payload: payload.encode('utf-32le').decode(errors='ignore') if payload else payload,
+
+        # 43. Obfuscate with percent-encoded characters (e.g., %uHHHH; )
+        lambda payload: "".join(f"%u{ord(char):04X}; " for char in payload) if payload else payload,
+
+        # 44. Replace '<' with '&lt;' and '>' with '&gt;'
+        lambda payload: payload.replace('<', '&lt;').replace('>', '&gt;') if payload else payload,
+
+        # 45. Encode the payload in UTF-32BE
+        lambda payload: payload.encode('utf-32be').decode(errors='ignore'),
+
+        # 46. Remove null characters (if a string)
+        lambda payload: payload.replace('\x00', '') if payload is not None and isinstance(payload, str) else payload,
+
+        # 47. Obfuscate with HTML entities for special characters
+        lambda payload: payload.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace('\'', '&#39;') if payload else payload,
+
+        # 48. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
+        lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,
+
+        # 49. Obfuscate with octal escape sequences (e.g., \ooo)
+        lambda payload: "".join(f"\\{oct(ord(char))[2:]}" for char in payload) if payload else payload,
+
+        # 50. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
+        lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,
+
+        # 51. Obfuscate with HTML entity references (e.g., &#xHH;)
+        lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,
+
+        # 52. Obfuscate with URL encoding
+        lambda payload: urllib.parse.quote(payload) if payload else payload,
+
+        # 53. Obfuscate with base64 encoding
+        lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore') if payload is not None else None,
+
+        # 54. Obfuscate with double URL encoding
+        lambda payload: urllib.parse.quote(urllib.parse.quote(payload)) if payload else payload,
+
+        # 55. Obfuscate with HTML entity references (e.g., &#HHHH;)
+        lambda payload: "".join(f"&#{ord(char)};" for char in payload) if payload else payload,
+
+        # 56. Obfuscate with HTML entity references (e.g., &amp;HHHH;)
+        lambda payload: "".join(f"&amp;{ord(char)};" for char in payload) if payload else payload,
+
+        # 57. Obfuscate with mixed character encoding (e.g., %uHH00)
+        lambda payload: "".join(f"%u{ord(char):04X}00" for char in payload) if payload else payload,
+
+        # 58. Obfuscate with URL encoding, lowercase
+        lambda payload: urllib.parse.quote(payload, safe='') if payload else payload,
+
+        # 59. Obfuscate with URL encoding, uppercase
+        lambda payload: urllib.parse.quote(payload, safe='').upper() if payload else payload,
+
+        # 60. Obfuscate with hexadecimal escape sequences, space-separated (e.g., \xHH )
+        lambda payload: "".join(f"\\x{ord(char):02x} " for char in payload) if payload else payload,
+
+        # 61. Obfuscate with Unicode escape sequences, space-separated (e.g., \uHHHH )
+        lambda payload: "".join(f"\\u{ord(char):04x} " for char in payload) if payload else payload,
+
+        # 62. Obfuscate with base64 encoding, stripping padding characters
+        lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore').rstrip('=') if payload is not None else None,
+
+        # 63. Obfuscate with HTML entity references, breaking it into multiple entities
+        lambda payload: "".join(f"&#{ord(char)};" for char in payload) if payload else payload,
+
+        # 64. Obfuscate with HTML entity references, breaking it into multiple entities
+        lambda payload: "".join(f"&#{ord(char)}" for char in payload) if payload else payload,
+
+        # 65. Obfuscate with HTML entity references, mixing it with hexadecimal encoding
+        lambda payload: "".join(f"&#{ord(char)};\\x{ord(char):02x}" for char in payload) if payload else payload,
+
+        # 66. Obfuscate with base64 encoding, using an alternate encoding scheme
+        lambda payload: base64.urlsafe_b64encode(payload.encode()).decode(errors='ignore') if payload is not None else None,
+
+        # 67. Obfuscate with base64 encoding, using an alternate encoding scheme and stripping padding characters
+        lambda payload: base64.urlsafe_b64encode(payload.encode()).decode(errors='ignore').rstrip('=') if payload is not None else None,
+
+        # 68. Obfuscate with hexadecimal escape sequences, combining with spaces (e.g., \xHH\xHH)
+        lambda payload: "".join(f"\\x{ord(char):02x}\\x{ord(char):02x}" for char in payload) if payload else payload,
+
+        # 69. Obfuscate with Unicode escape sequences, combining with spaces (e.g., \uHHHH\uHHHH)
+        lambda payload: "".join(f"\\u{ord(char):04x}\\u{ord(char):04x}" for char in payload) if payload else payload,
+
+        # 70. Obfuscate with base64 encoding, using an alternate encoding scheme and adding custom padding
+        lambda payload: base64.urlsafe_b64encode(payload.encode()).decode(errors='ignore').replace('=', '-').replace('+', '_') if payload is not None else None,
+
+        # 71. Obfuscate with hexadecimal escape sequences, using curly braces (e.g., \x{HH})
+        lambda payload: "".join(f"\\x{{" + f"{ord(char):02x}" + "}" for char in payload) if payload else payload,
+
+        # 72. Obfuscate with Unicode escape sequences, using curly braces (e.g., \u{HHHH})
+        lambda payload: "".join(f"\\u{{" + f"{ord(char):04x}" + "}" for char in payload) if payload else payload,
+
+        # 73. Obfuscate with hexadecimal escape sequences, combining with curly braces (e.g., \x{HH}\x{HH})
+        lambda payload: "".join(f"\\x{{" + f"{ord(char):02x}" + "}}" for char in payload) if payload else payload,
+
+        # 74. Obfuscate with Unicode escape sequences, combining with curly braces (e.g., \u{HHHH}\u{HHHH})
+        lambda payload: "".join(f"\\u{{" + f"{ord(char):04x}" + "}}" for char in payload) if payload else payload,
+
+        # 75. Obfuscate with hexadecimal escape sequences, using parentheses (e.g., \x(HH))
+        lambda payload: "".join(f"\\x(" + f"{ord(char):02x}" + ")" for char in payload) if payload else payload,
+
+        # 76. Obfuscate with Unicode escape sequences, using parentheses (e.g., \u(HHHH))
+        lambda payload: "".join(f"\\u(" + f"{ord(char):04x}" + ")" for char in payload) if payload else payload,
+
+        # 77. Obfuscate with hexadecimal escape sequences, combining with parentheses (e.g., \x(HH)\x(HH))
+        lambda payload: "".join(f"\\x(" + f"{ord(char):02x}" + ")" + f"\\x(" + f"{ord(char):02x}" + ")" for char in payload) if payload else payload,
+
+        # 78. Obfuscate with Unicode escape sequences, combining with parentheses (e.g., \u(HHHH)\u(HHHH))
+        lambda payload: "".join(f"\\u(" + f"{ord(char):04x}" + ")" + f"\\u(" + f"{ord(char):04x}" + ")" for char in payload) if payload else payload,
+
+        # 79. Obfuscate with hexadecimal escape sequences, using square brackets (e.g., \x[HH])
+        lambda payload: "".join(f"\\x[" + f"{ord(char):02x}" + "]" for char in payload) if payload else payload,
+
+        # 80. Obfuscate with Unicode escape sequences, using square brackets (e.g., \u[HHHH])
+        lambda payload: "".join(f"\\u[" + f"{ord(char):04x}" + "]" for char in payload) if payload else payload,
+
+        # 81. Obfuscate with hexadecimal escape sequences, combining with square brackets (e.g., \x[HH]\x[HH])
+        lambda payload: "".join(f"\\x[" + f"{ord(char):02x}" + "]" + f"\\x[" + f"{ord(char):02x}" + "]" for char in payload) if payload else payload,
+
+        # 82. Obfuscate with Unicode escape sequences, combining with square brackets (e.g., \u[HHHH]\u[HHHH])
+        lambda payload: "".join(f"\\u[" + f"{ord(char):04x}" + "]" + f"\\u[" + f"{ord(char):04x}" + "]" for char in payload) if payload else payload,
+
+        # 83. Obfuscate with hexadecimal escape sequences, using angle brackets (e.g., \x<HH>)
+        lambda payload: "".join(f"\\x<" + f"{ord(char):02x}" + ">" for char in payload) if payload else payload,
+
+        # 84. Obfuscate with Unicode escape sequences, using angle brackets (e.g., \u<HHHH>)
+        lambda payload: "".join(f"\\u<" + f"{ord(char):04x}" + ">" for char in payload) if payload else payload,
+
+        # 85. Obfuscate with hexadecimal escape sequences, combining with angle brackets (e.g., \x<HH>\x<HH>)
+        lambda payload: "".join(f"\\x<" + f"{ord(char):02x}" + ">" + f"\\x<" + f"{ord(char):02x}" + ">" for char in payload) if payload else payload,
+
+        # 86. Obfuscate with Unicode escape sequences, combining with angle brackets (e.g., \u<HHHH>\u<HHHH>)
+        lambda payload: "".join(f"\\u<" + f"{ord(char):04x}" + ">" + f"\\u<" + f"{ord(char):04x}" + ">" for char in payload) if payload else payload,
+
+        # 87. Obfuscate with hexadecimal escape sequences, using square brackets and spaces (e.g., \x[HH] )
+        lambda payload: "".join(f"\\x[" + f"{ord(char):02x}" + "] " for char in payload) if payload else payload,
+
+        # 88. Obfuscate with Unicode escape sequences, using square brackets and spaces (e.g., \u[HHHH] )
+        lambda payload: "".join(f"\\u[" + f"{ord(char):04x}" + "] " for char in payload) if payload else payload,
+
+        # 89. Obfuscate with hexadecimal escape sequences, combining with square brackets and spaces (e.g., \x[HH] \x[HH] )
+        lambda payload: "".join(f"\\x[" + f"{ord(char):02x}" + "] " + f"\\x[" + f"{ord(char):02x}" + "] " for char in payload) if payload else payload,
+
+        # 90. Obfuscate with Unicode escape sequences, combining with square brackets and spaces (e.g., \u[HHHH] \u[HHHH] )
+        lambda payload: "".join(f"\\u[" + f"{ord(char):04x}" + "] " + f"\\u[" + f"{ord(char):04x}" + "] " for char in payload) if payload else payload,
+
+        # 91. Obfuscate with hexadecimal escape sequences, using angle brackets and spaces (e.g., \x<HH> )
+        lambda payload: "".join(f"\\x<" + f"{ord(char):02x}" + "> " for char in payload) if payload else payload,
+
+        # 92. Obfuscate with Unicode escape sequences, using angle brackets and spaces (e.g., \u<HHHH> )
+        lambda payload: "".join(f"\\u<" + f"{ord(char):04x}" + "> " for char in payload) if payload else payload,
+
+        # 93. Obfuscate with hexadecimal escape sequences, combining with angle brackets and spaces (e.g., \x<HH> \x<HH> )
+        lambda payload: "".join(f"\\x<" + f"{ord(char):02x}" + "> " + f"\\x<" + f"{ord(char):02x}" + "> " for char in payload) if payload else payload,
+
+        # 94. Obfuscate with Unicode escape sequences, combining with angle brackets and spaces (e.g., \u<HHHH> \u<HHHH> )
+        lambda payload: "".join(f"\\u<" + f"{ord(char):04x}" + "> " + f"\\u<" + f"{ord(char):04x}" + "> " for char in payload) if payload else payload,
     ]
 
 def get_arguments():
