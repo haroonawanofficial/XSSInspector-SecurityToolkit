@@ -51,7 +51,7 @@ XSS Inspector is a powerful tool for identifying and reporting Cross-Site Script
 - Comprehensive Testing: With obfuscation techniques, the scanner thoroughly tests potential vulnerabilities by employing multiple payload variations.
 - Improved Reliability: The combination of heuristic and obfuscation logic ensures a more reliable and effective XSS scanner, resulting in precise vulnerability identification and decreased security risks.
 
-## Obfuscations with Bypassing (71 special modes are supported built-in)
+## Obfuscations with Bypassing (74 special modes are supported built-in)
 
 - Parameter pollution built-in; software auto use it when necessary.
 - Replace "alert" with "confirm": Replaces "alert" with "confirm" in the payload.
