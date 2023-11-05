@@ -124,7 +124,7 @@ class XSSInspectorApp(QWidget):
 
         # Create a layout for the progress bar and its label
         progress_layout = QHBoxLayout()
-        self.progress_label = QLabel('Progress Bar:', self)
+        self.progress_label = QLabel('Status of Payload Analysis:', self)
         self.progress_bar = AnimatedProgressBar()
         progress_layout.addWidget(self.progress_label)
         progress_layout.addWidget(self.progress_bar)
