@@ -461,23 +461,19 @@ def readTargetFromFile(filepath):
     return urls_list
 
 def start(self):
+    # Count and display the number of discovered links
+    print(f"[{current_time}] Discovered {self.links_discovered} links.")
     print(f"[{current_time}] Now implementing logics to capture XSS vulnerabilities on given links")
     self.url_list = list(set(self.url_list))
-    
-    # Create a partially applied function for scanning with payloads
-    scan_urls_with_payload = partial(self.scan_urls_for_xss, payload=self.payload)
-
     with ThreadPoolExecutor(max_workers=int(self.threadNumber)) as executor:
-        results = list(executor.map(self.scan_urls_for_xss, [(url, self.payload) for url in self.url_list]))
-    
+        results = list(executor.map(self.scan_urls_for_xss, self.url_list))
+        self.links_audited += len(self.url_list)  # Update links_audited
     self.vulnerable_urls = [url for sublist in results for url in sublist]
-    
     if self.report_file:
         self.store_vulnerabilities_in_sqlite()
         self.generate_report()
-    
     return self.vulnerable_urls
-
+    
 class PassiveCrawl:
     def __init__(self, domain, want_subdomain, threadNumber, deepcrawl):
         self.domain = domain
@@ -588,6 +584,8 @@ class XSSScanner:
         self.report_file = report_file
         self.payload = payload
         self.stop_scan = False
+        self.links_discovered = len(url_list)  # Initialize links_discovered
+        self.links_audited = 0  # Initialize links_audited
         signal.signal(signal.SIGINT, self.handle_ctrl_c)
 
     def handle_ctrl_c(self, signum, frame):
@@ -595,6 +593,11 @@ class XSSScanner:
         self.stop_scan = True
 
     def start(self):
+        # Count and display the number of discovered links and parameters
+        discovered_links = len(self.url_list)
+        discovered_params = sum(len(parse_qs(urlparse(url).query)) for url in self.url_list)
+        print(f"[{current_time}] Discovered {discovered_links} links and {discovered_params} parameters before scanning.")
+
         print(f"[{current_time}] Now implementing logics to capture XSS vulnerabilities on given links")
         self.url_list = list(set(self.url_list))
         with ThreadPoolExecutor(max_workers=int(self.threadNumber)) as executor:
@@ -604,7 +607,7 @@ class XSSScanner:
             self.store_vulnerabilities_in_sqlite()
             self.generate_report()
         return self.vulnerable_urls
-
+    
     def scan_urls_for_xss(self, url):
         vulnerable_payloads = []
         
@@ -614,6 +617,11 @@ class XSSScanner:
         parsed_url = urlparse(url)
         query_params = parse_qs(parsed_url.query)
 
+        # Initialize variables to keep track of progress
+        links_tested = 0
+        total_links = len(self.url_list)
+        current_link = None
+
         # Iterate through query parameters
         for param, values in query_params.items():
             if any(keyword in param.lower() for keyword in file_related_keywords):
@@ -622,6 +630,12 @@ class XSSScanner:
 
             for payload in xss_payloads:
                 payload_url = f"{url}?{param}={payload}"
+                
+                # Check if it's a different link or testing the same link with a different payload
+                if payload_url != current_link:
+                    current_link = payload_url
+                    print(f"Testing different link {links_tested + 1}/{total_links}: {payload_url}")
+                
                 try:
                     response = requests.get(payload_url, verify=False, timeout=10)
 
@@ -629,13 +643,17 @@ class XSSScanner:
                         return vulnerable_payloads
 
                     if response.status_code == 200 and payload in response.text:
-                        print(f"Potential XSS vulnerability found in URL: {payload_url} with payload: {payload}")
+                        print(f"Potential XSS vulnerability found in link {links_tested + 1}/{total_links}: {payload_url}")
                         vulnerable_payloads.append((payload_url, payload))
+                    
+                    # Increment the links tested counter
+                    links_tested += 1
+
                 except Exception as e:
                     pass
 
-        return vulnerable_payloads
-
+                return vulnerable_payloads
+        
     def test_xss_vulnerabilities(self, url, payload):
         vulnerable_urls = []
         if self.stop_scan:
