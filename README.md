@@ -15,9 +15,12 @@ The XSSInspector is a powerful security tool designed to find Cross-Site Scripti
   
 - **Multi Threading**: Built-in python's advantage to use default threads 50 but it goes upto 100 if CPU supports that much suited for tasks like scanning multiple URLs for vulnerabilities.
 
+- **URL Record Tracker**: Keep tracking if we are same link with payloads or obfuscation or not; provides solid information.
+  
 - **SQLite**: Sqllite is a self-contained, serverless, and zero-configuration database engine that is used in embedded systems, mobile devices, desktop applications, and small-scale database applications.
 
 - **SQLite Database File (xss_vulnerabilities.db) for XSSInspector**:
+
 
 1. xss_vulnerabilities.db is an SQLite database used to store information about detected XSS vulnerabilities during the scanning process.
 2. Structured Storage: The database provides structured storage for vulnerabilities and their associated URLs.
@@ -150,7 +153,7 @@ The XSSInspector is a powerful security tool designed to find Cross-Site Scripti
 
 - Windows/Mac/Linux GUI:
 
-![Alt text](https://i.ibb.co/yYVqwyd/xssinecptorgui.png)
+![Alt text](https://i.ibb.co/F5gT9Tw/xssinecptorgui.png)
 
 - Example Running from Windows:
 
