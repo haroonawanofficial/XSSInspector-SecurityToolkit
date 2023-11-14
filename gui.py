@@ -161,7 +161,7 @@ class XSSInspectorApp(QWidget):
 
         # Link label
         self.link_label = QLabel(
-            '(<b>XSS Inspector</b> by Haroon Ahmad Awan | <a href="http://www.cyberzeus.pk">Cyberzeus.pk</a> | Hyperthreading and concurrency enabled',
+            '(<b>XSS Inspector</b> by Haroon Ahmad Awan | <a href="http://www.cyberzeus.pk">Cyberzeus.pk</a> | Hyperthreading, concurrency and 96 obfuscation functions loaded successfully',
             self)
         self.link_label.setOpenExternalLinks(True)
         self.link_label.linkActivated.connect(self.open_link)
