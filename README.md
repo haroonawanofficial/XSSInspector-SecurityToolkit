@@ -153,7 +153,7 @@ The XSSInspector is a powerful security tool designed to find Cross-Site Scripti
 
 - Windows/Mac/Linux GUI:
 
-![Alt text](https://i.ibb.co/F5gT9Tw/xssinecptorgui.png)
+![Alt text](https://i.ibb.co/BBXkhT0/xssinecptorgui.png)
 
 - Example Running from Windows:
 
