@@ -105,6 +105,8 @@ class XSSInspectorApp(QWidget):
         self.initUI()
         self.scanning_thread = None
         os.environ['PYTHONUNBUFFERED'] = '1'
+        # Initialize self.unique_results as an empty set
+        self.unique_results = set()
 
     def initUI(self):
         # Set up the main window
@@ -255,7 +257,7 @@ class XSSInspectorApp(QWidget):
             self.results_text.clear()
             self.scan_button.setEnabled(False)
             self.stop_button.setEnabled(True)
-            self.set_text_color("Initializing...", QColor("darkGreen"))
+            self.set_text_color("Initializing...\n", QColor("darkGreen"))
             domain = self.domain_input.text()
             url_list = self.url_list_input.text()
             if not domain and not url_list:
@@ -287,12 +289,18 @@ class XSSInspectorApp(QWidget):
         self.results_text.setTextCursor(cursor)
         self.results_text.verticalScrollBar().setValue(self.results_text.verticalScrollBar().maximum())
 
-        # Determine the type of result and append to the appropriate QTextEdit
-        if "Testing" in output:
-            self.append_to_text_edit(output, self.testing_results_text)
-        elif "Potential" in output:
-            self.append_to_text_edit(output, self.potential_results_text)
 
+    def update_results_text(self, output):
+        if "Testing" in output and output not in self.unique_results:
+            self.append_to_text_edit(output, self.testing_results_text)
+            self.unique_results.add(output)
+        elif "Potential" in output and output not in self.unique_results:
+            self.append_to_text_edit(output, self.potential_results_text)
+            self.unique_results.add(output)
+        elif output not in self.unique_results:
+            self.append_to_text_edit(output, self.results_text)
+            self.unique_results.add(output)
+    
     def append_to_text_edit(self, text, text_edit):
         cursor = QTextCursor(text_edit.document())
         cursor.movePosition(QTextCursor.End)
