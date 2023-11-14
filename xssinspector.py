@@ -604,7 +604,7 @@ class XSSScanner:
         print(f"[{current_time}] Now implementing logic to capture Stored XSS vulnerabilities")
         print(f"[{current_time}] Now implementing logic to capture Persistent XSS vulnerabilities")
         print(f"[{current_time}] Now implementing logic to capture any known to unknown XSS vulnerabilities")
-        print(f"[{current_time}] Starting XSS vulnerabilities scan on {discovered_links} with {discovered_params} present")
+        print(f"[{current_time}] Starting XSS vulnerabilities scan on {discovered_links} links with {discovered_params} parameters")
         self.url_list = list(set(self.url_list))
         with ThreadPoolExecutor(max_workers=int(self.threadNumber)) as executor:
             results = list(executor.map(self.scan_urls_for_xss, self.url_list))
