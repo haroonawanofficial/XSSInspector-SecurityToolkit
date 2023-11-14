@@ -1,12 +1,25 @@
 import sys
 import os
 import subprocess
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit, QLineEdit, QCheckBox, QFileDialog, QProgressBar
-from PyQt5.QtGui import QTextCharFormat, QColor
+from PyQt5.QtWidgets import (
+    QApplication,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QTextEdit,
+    QLineEdit,
+    QCheckBox,
+    QFileDialog,
+    QProgressBar,
+)
+from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor
 from PyQt5.QtCore import QTimer, pyqtSlot, QUrl, QThread, Qt
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QTextCursor
 from datetime import datetime
+from PyQt5.QtGui import QDesktopServices
 
 class AnimatedProgressBar(QProgressBar):
     def __init__(self, duration=1000, steps=1000):
@@ -94,23 +107,48 @@ class XSSInspectorApp(QWidget):
         os.environ['PYTHONUNBUFFERED'] = '1'
 
     def initUI(self):
+        # Set up the main window
         self.setWindowTitle('XSS Inspector')
         self.setGeometry(100, 100, 600, 400)
+
+        # Create UI elements
+        self.create_input_elements()  # Make sure this method creates self.domain_input, self.url_list_input, etc.
+        self.create_results_text_areas()
+        self.create_progress_bar()
+
+        # Set up layout
+        self.create_layout()
+
+        # Connect signals to slots
+        self.connect_signals()
+
+        # Add the following lines after creating the QLineEdit widgets
+        self.domain_input.setPlaceholderText('Enter domain that you want to scan')
+        self.url_list_input.setPlaceholderText('Select URL list file which have hosts on each new line')
+
+        # Add the following lines after creating the QTextEdit widgets
+        self.results_text.setPlaceholderText('No information yet, waiting for code to run')
+        self.testing_results_text.setPlaceholderText('No testing results yet, waiting for code to run')
+        self.potential_results_text.setPlaceholderText('No potential xss results yet, waiting for code to run')
+
+    def create_input_elements(self):
+        # Domain input
         self.domain_label = QLabel('Domain:', self)
         self.domain_input = QLineEdit(self)
+
+        # URL List input
         self.url_list_label = QLabel('URL List File:', self)
         self.url_list_input = QLineEdit(self)
         self.browse_button = QPushButton('Browse', self)
         self.browse_button.clicked.connect(self.browse_for_file)
+
+        # Options checkboxes
         self.reports_checkbox = QCheckBox('Generate Reports', self)
         self.threads_checkbox = QCheckBox('Use 50 Threads', self)
         self.include_subdomain_checkbox = QCheckBox('Include Subdomains', self)
         self.deep_crawl_checkbox = QCheckBox('Deep Crawl', self)
-        self.results_text = QTextEdit(self)
-        self.results_text.setReadOnly(True)
-        self.timestamp_format = QTextCharFormat()
-        self.timestamp_format.setForeground(QColor("darkGreen"))
-        self.timestamp_format.setFontWeight(75)
+
+        # Buttons
         self.scan_button = QPushButton('Start Scan', self)
         self.scan_button.clicked.connect(self.start_scan)
         self.stop_button = QPushButton('Stop Scan', self)
@@ -118,24 +156,43 @@ class XSSInspectorApp(QWidget):
         self.stop_button.setEnabled(False)
         self.close_button = QPushButton('Close App', self)
         self.close_button.clicked.connect(self.close_app)
-        self.link_label = QLabel('<b>XSS Inspector</b> by Haroon Ahmad Awan | <a href="http://www.cyberzeus.pk">Cyberzeus.pk</a>', self)
+
+        # Link label
+        self.link_label = QLabel(
+            '(<b>XSS Inspector</b> by Haroon Ahmad Awan | <a href="http://www.cyberzeus.pk">Cyberzeus.pk</a> | Hyperthreading and concurrency enabled',
+            self)
         self.link_label.setOpenExternalLinks(True)
         self.link_label.linkActivated.connect(self.open_link)
 
-        # Create a layout for the progress bar and its label
-        progress_layout = QHBoxLayout()
+    def create_results_text_areas(self):
+        # Results text area
+        self.results_text = QTextEdit(self)
+        self.results_text.setReadOnly(True)
+
+        # Additional result text areas
+        self.testing_results_text = QTextEdit(self)
+        self.testing_results_text.setReadOnly(True)
+        self.potential_results_text = QTextEdit(self)
+        self.potential_results_text.setReadOnly(True)
+
+    def create_progress_bar(self):
+        # Progress bar and label
         self.progress_label = QLabel('Status of Payload Analysis:', self)
         self.progress_bar = AnimatedProgressBar()
-        progress_layout.addWidget(self.progress_label)
-        progress_layout.addWidget(self.progress_bar)
-        
-        layout = QVBoxLayout()
+
+    def create_layout(self):
+        # Layout for domain input
         layout_domain = QHBoxLayout()
         layout_domain.addWidget(self.domain_label)
         layout_domain.addWidget(self.domain_input)
+
+        # Layout for URL list input
         layout_url_list = QHBoxLayout()
         layout_url_list.addWidget(self.url_list_label)
         layout_url_list.addWidget(self.url_list_input)
+
+        # Main layout
+        layout = QVBoxLayout()
         layout.addLayout(layout_domain)
         layout.addLayout(layout_url_list)
         layout.addWidget(self.browse_button)
@@ -143,17 +200,40 @@ class XSSInspectorApp(QWidget):
         layout.addWidget(self.threads_checkbox)
         layout.addWidget(self.include_subdomain_checkbox)
         layout.addWidget(self.deep_crawl_checkbox)
-        layout.addLayout(progress_layout)  # Adding the progress_layout here
         layout.addWidget(self.results_text)
+        layout.addWidget(self.testing_results_text)
+        layout.addWidget(self.potential_results_text)
 
+        # Layout for progress bar and label
+        progress_layout = QHBoxLayout()
+        progress_layout.addWidget(self.progress_label)
+        progress_layout.addWidget(self.progress_bar)
+        layout.addLayout(progress_layout)
+
+        # Layout for buttons
         layout_buttons = QHBoxLayout()
         layout_buttons.addWidget(self.scan_button)
         layout_buttons.addWidget(self.stop_button)
         layout_buttons.addWidget(self.close_button)
         layout.addLayout(layout_buttons)
 
+        # Link label
         layout.addWidget(self.link_label)
+
+        # Set the main layout
         self.setLayout(layout)
+
+    def connect_signals(self):
+        # Connect the browse button to the browse_for_file method
+        self.browse_button.clicked.connect(self.browse_for_file)
+
+        # Connect the scan and stop buttons to their respective methods
+        self.scan_button.clicked.connect(self.start_scan)
+        self.stop_button.clicked.connect(self.stop_scan)
+
+        # Set up the link label to open the specified URL when clicked
+        self.link_label.setOpenExternalLinks(True)
+        self.link_label.linkActivated.connect(self.open_link)
 
     @pyqtSlot()
     def stop_scan(self):
@@ -206,6 +286,19 @@ class XSSInspectorApp(QWidget):
         cursor.insertText(output)
         self.results_text.setTextCursor(cursor)
         self.results_text.verticalScrollBar().setValue(self.results_text.verticalScrollBar().maximum())
+
+        # Determine the type of result and append to the appropriate QTextEdit
+        if "Testing" in output:
+            self.append_to_text_edit(output, self.testing_results_text)
+        elif "Potential" in output:
+            self.append_to_text_edit(output, self.potential_results_text)
+
+    def append_to_text_edit(self, text, text_edit):
+        cursor = QTextCursor(text_edit.document())
+        cursor.movePosition(QTextCursor.End)
+        cursor.insertText(text)
+        text_edit.setTextCursor(cursor)
+        text_edit.verticalScrollBar().setValue(text_edit.verticalScrollBar().maximum())
 
     def close_app(self):
         if self.scanning_thread and self.scanning_thread.isRunning():
