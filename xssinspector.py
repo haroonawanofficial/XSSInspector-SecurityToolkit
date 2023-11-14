@@ -596,9 +596,15 @@ class XSSScanner:
         # Count and display the number of discovered links and parameters
         discovered_links = len(self.url_list)
         discovered_params = sum(len(parse_qs(urlparse(url).query)) for url in self.url_list)
-        print(f"[{current_time}] Discovered {discovered_links} links and {discovered_params} parameters before scanning.")
-
-        print(f"[{current_time}] Now implementing logics to capture XSS vulnerabilities on given links")
+        print(f"[{current_time}] Discovered {discovered_links} links")
+        print(f"[{current_time}] Discovered {discovered_params} parameters")
+        print(f"[{current_time}] Analysing links")
+        print(f"[{current_time}] Analysing parameters")
+        print(f"[{current_time}] Now implementing logic to capture Reflected XSS vulnerabilities")
+        print(f"[{current_time}] Now implementing logic to capture Stored XSS vulnerabilities")
+        print(f"[{current_time}] Now implementing logic to capture Persistent XSS vulnerabilities")
+        print(f"[{current_time}] Now implementing logic to capture any known to unknown XSS vulnerabilities")
+        print(f"[{current_time}] Starting XSS vulnerabilities scan on {discovered_links} with {discovered_params} present")
         self.url_list = list(set(self.url_list))
         with ThreadPoolExecutor(max_workers=int(self.threadNumber)) as executor:
             results = list(executor.map(self.scan_urls_for_xss, self.url_list))
@@ -608,9 +614,10 @@ class XSSScanner:
             self.generate_report()
         return self.vulnerable_urls
     
-    def scan_urls_for_xss(self, url):
-        vulnerable_payloads = []
-        
+    def scan_urls_for_xss(self, url, output_failed_payloads=True):
+        successful_payloads = []
+        failed_payloads = []
+
         # Define a list of keywords that suggest file-related parameters
         file_related_keywords = ["file", "path", "image", "jquery.magnific-popup.min", "jquery.magnific-popup", "jquery", "jquery.magnific-popup.min.js", "preloaded-modules.min.js", "download", "preloaded-modules.min", "widget-scripts", "preloaded-modules", "jquery.magnific-popup", "widget-scripts", "jquery.magnific-popup", "preloaded-modules", "widget-scripts", "jquery.magnific-popup", "widget-scripts", "jquery.magnific-popup.min", "preloaded", "preload", "preloaded-modules.min", "jquery.magnific-popup.min"]
 
@@ -634,17 +641,20 @@ class XSSScanner:
                 # Check if it's a different link or testing the same link with a different payload
                 if payload_url != current_link:
                     current_link = payload_url
-                    print(f"Testing different link {links_tested + 1}/{total_links}: {payload_url}")
+                    print(f"Testing link {links_tested + 1}, remaining of {total_links} discovered: {payload_url}")
                 
                 try:
                     response = requests.get(payload_url, verify=False, timeout=10)
 
                     if self.stop_scan:
-                        return vulnerable_payloads
+                        return successful_payloads, failed_payloads
 
                     if response.status_code == 200 and payload in response.text:
-                        print(f"Potential XSS vulnerability found in link {links_tested + 1}/{total_links}: {payload_url}")
-                        vulnerable_payloads.append((payload_url, payload))
+                        print(f"Potential XSS vulnerability found in link {links_tested + 1}, remaining of {total_links} discovered: {payload_url}")
+                        successful_payloads.append((payload_url, payload))
+                    else:
+                        # Payload did not work, add it to the list of failed payloads
+                        failed_payloads.append((payload_url, payload))
                     
                     # Increment the links tested counter
                     links_tested += 1
@@ -652,64 +662,13 @@ class XSSScanner:
                 except Exception as e:
                     pass
 
-                return vulnerable_payloads
+        if output_failed_payloads:
+            for payload_url, payload in failed_payloads:
+                print(f"Payload did not work for link {links_tested}/{total_links}: {payload_url}")
+
+        return successful_payloads
         
-    def test_xss_vulnerabilities(self, url, payload):
-        vulnerable_urls = []
-        if self.stop_scan:
-            return vulnerable_urls
-
-        best_obfuscation = None
-        max_successful_injections = 0
-
-        for obfuscate in obfuscation_methods:
-            obfuscated_payload = obfuscate(payload)
-
-            if obfuscated_payload:
-                payload_url = url + "?" + obfuscated_payload
-                print(f"[{current_time}] Testing URL: {payload_url} Cursor: {cursor}", end='\r')
-                try:
-                    response = requests.get(payload_url, verify=False, timeout=10)
-
-                    if self.stop_scan:
-                        return vulnerable_urls
-
-                    if response.status_code == 200 and "alert" in response.text:
-                        successful_injections = response.text.count("alert")
-                        if successful_injections > max_successful_injections:
-                            max_successful_injections = successful_injections
-                            best_obfuscation = obfuscate.__name__
-                        vulnerable_urls.append(payload_url)
-                except Exception as e:
-                    pass
-
-        if best_obfuscation:
-            print(f"[{current_time}] Suitable obfuscation method found for {url}: {best_obfuscation}")
-        else:
-            pass
-            #fprint(f"[{current_time}] No successful obfuscation method found for {url}")
-
-        return vulnerable_urls
-
-    def store_vulnerabilities_in_sqlite(self):
-        conn = sqlite3.connect("xss_vulnerabilities.db")
-        cursor = conn.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS vulnerabilities (url TEXT)")
-        conn.commit()
-
-        for url in self.vulnerable_urls:
-            cursor.execute("INSERT INTO vulnerabilities (url) VALUES (?)", (url,))
-            conn.commit()
-
-        conn.close()
-
-    def generate_report(self):
-        env = Environment(loader=FileSystemLoader('.'))
-        template = env.get_template('report_template.html')
-        report_content = template.render(vulnerable_urls=self.vulnerable_urls)
-
-        with open(self.report_file, "w") as f:
-            f.write(report_content)
+    # ... (other methods)
 
 if __name__ == '__main__':
     arguments = get_arguments()
