@@ -1534,7 +1534,6 @@ def save_extracted_urls(url_list):
     except OSError as e:
         print(f"Error saving extracted URLs: {e}")
 
-
 def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
                  dedupe_php_with_id=False, with_id_question_mark=False, output_file=None):
     """
@@ -1552,6 +1551,9 @@ def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
     Returns:
         list: A list of processed URLs.
     """
+    import re
+    from urllib.parse import urlparse
+
     # Supported extensions and common endpoints
     supported_extensions = [".php", ".asp", ".htm", ".html", ".aspx", ".jsp", ".cgi"]
     common_endpoints = [
@@ -1571,13 +1573,25 @@ def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
         for line in file:
             line = line.strip()
 
+            # Skip empty lines
+            if not line:
+                continue
+
             # Extract embedded URLs if present
             embedded_match = embedded_url_regex.search(line)
             if embedded_match:
                 line = embedded_match.group(1)
 
-            # Validate the scheme and parse the URL
-            if scheme_regex.match(line):
+            # Skip IPv6 URLs
+            if "[" in line or "]" in line:
+                continue
+
+            # Validate the scheme
+            if not scheme_regex.match(line):
+                continue
+
+            # Parse the URL
+            try:
                 parsed = urlparse(line)
                 clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
@@ -1621,6 +1635,10 @@ def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
                             modified_url = line
                         processed_urls.add(modified_url)
 
+            except:
+                # Ignore any parsing errors or invalid lines
+                continue
+
     # Combine results based on the selected option
     if php_only:
         results = sorted(processed_urls)
@@ -1642,6 +1660,7 @@ def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
                 out_file.write(url + '\n')
 
     return results
+
 
 def get_arguments():
     # Create the argument parser with RawTextHelpFormatter to preserve formatting
@@ -1781,6 +1800,7 @@ def get_arguments():
 
     return parser.parse_args()
 
+
 def main():
     args = get_arguments()
 
@@ -1791,6 +1811,8 @@ def main():
 
         if args.input:
             print(f"\033[96mProcessing URLs from:\033[0m {args.input}")
+            print("\033[93mNote:\033[0m IPv6 URLs will be skipped silently without processing.")
+            
             # Call process_urls with correct arguments
             processed_urls = process_urls(
                 input_file=args.input,
@@ -1809,23 +1831,6 @@ def main():
                 print("\033[92mProcessed URLs:\033[0m")
                 for url in processed_urls:
                     print(url)
-        elif args.use_extracted_file:
-            print(f"\033[96mUsing extracted file:\033[0m {args.use_extracted_file}")
-            # Process URLs from the extracted file
-            final_url_list = readTargetFromFile(args.use_extracted_file)
-            print(f"\033[92mLoaded {len(final_url_list)} URLs from {args.use_extracted_file}\033[0m")
-        elif args.domain:
-            print(f"\033[96mCollecting URLs for domain:\033[0m {args.domain}")
-            # Extract URLs from the domain
-            sources = args.sources.split(",") if args.sources.lower() != "all" else ["alienvault", "wayback", "commoncrawl"]
-            final_url_list = extract_from_sources(args.domain, args.want_subdomain, sources)
-        elif args.url_list:
-            print(f"\033[96mProcessing URL list from file:\033[0m {args.url_list}")
-            # Process URLs from the provided list
-            final_url_list = readTargetFromFile(args.url_list)
-        else:
-            print(f"[!] Invalid input source. Use --help for usage instructions.")
-            sys.exit(1)
 
     except ValueError as ve:
         print(f"\033[91mInput Error: {ve}\033[0m")
@@ -1836,6 +1841,7 @@ def main():
     except Exception as e:
         print(f"\033[91mError during processing: {str(e)}\033[0m")
         sys.exit(1)
+
 
 def make_get_request(url, response_type="json"):
     """
@@ -1857,18 +1863,22 @@ def make_get_request(url, response_type="json"):
     print(f"Failed to fetch {url} after {retries} attempts.")
     return None
 
-
 def save_extracted_urls_to_file(url_list, output_file):
     """
-    Save extracted URLs to the specified .txt file.
+    Save extracted URLs to the specified .txt file, automatically eliminating IPv6 URLs.
     """
     try:
         with open(output_file, 'w') as file:
             for url in url_list:
+                # Skip IPv6 URLs
+                if "[" in url or "]" in url:
+                    continue
                 file.write(url + "\n")
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Extracted URLs saved to {output_file}")
     except OSError as e:
-        print(f"Error saving extracted URLs: {e}")
+        # Suppress the error or handle it silently
+        pass
+
 
 def limit_links(url_list, limit):
     if limit == "all":
