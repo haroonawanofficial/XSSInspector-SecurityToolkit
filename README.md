@@ -155,21 +155,8 @@ The XSSInspector is a powerful security tool designed to find Cross-Site Scripti
 
 ## Screenshots
 
-- Windows/Mac/Linux GUI:
+![Alt text](https://i.ibb.co/m80rg2C/upme.png)
 
-![Alt text](https://i.ibb.co/cF212H7/xssinecptorgui.png)
-
-- Example Running from Windows:
-
-![Alt text](https://i.ibb.co/n6GJSJ1/Untitled.png)
-
-- Stored XSS (server side):
-
-![Alt text](https://i.ibb.co/Y3grD7q/Untitled2.png)
-
-- Reflected XSS (client side):
-
-![Alt text](https://i.ibb.co/Brp2tDn/refected-xssinspector.png)
 
 
 ## Benchmark
