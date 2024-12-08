@@ -1,10 +1,11 @@
-# Beta Update(STILL TESTING)
-The XSSInspector redeveloping with URL Processor on the fly to extract any url, and process and test XSS with full automation with log files, report generation and .sql entries. There might be duplicates entries in the script itself....
-
 # XSSInspector
 The XSSInspector is a powerful security tool designed to find Cross-Site Scripting (XSS) threats—a pervasive and dangerous issue in web applications. This open-source solution simplifies XSS vulnerability identification and mitigation, serving as a valuable asset for security experts and developers.
 
 ## Features
+
+- **URL Processor**: XSS Inspector can perform data cleansing and url check for .asp, .php, .cgi and more....
+
+- **Heuristic-Based Logic**: XSS Inspector can determine if an endpoint exists using heuristics. By leveraging assumptions and advanced reasoning, it verifies the endpoint and attempts to inject payloads to assess whether the remote target is vulnerable.
 
 - **URL Crawling**: XSS Inspector supports various methods of collecting URLs, including Common Crawl, Wayback Machine, and OTX Alienvault.
 
