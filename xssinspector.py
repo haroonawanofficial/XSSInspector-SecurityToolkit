@@ -762,7 +762,7 @@ class PassiveCrawl:
         return list(final_urls_list)
     
 class XSSScanner:
-    def __init__(self, domain, url_list, threadNumber, report_file, skip_duplicate, use_filters, payload=None, duration=None):
+    def __init__(self, domain, url_list, threadNumber, report_file, skip_duplicate, obfuscation_methods, payload=None, duration=None):
         self.url_list = url_list
         self.threadNumber = threadNumber
         self.domain = domain
@@ -770,7 +770,7 @@ class XSSScanner:
         self.report_file = report_file
         self.payload = payload
         self.skip_duplicate = skip_duplicate
-        self.use_filters = use_filters  # Number of filters to use
+        self.obfuscation_methods = obfuscation_methods  # Number of filters to use
         self.url_test_counts = {}  # Dictionary to track URL test counts
         self.stop_scan = False
         self.links_discovered = len(url_list)  # Initialize links_discovered
@@ -949,7 +949,7 @@ class XSSScanner:
             vulnerable_urls_filename = os.path.join(TEXT_FOLDER, f"vulnerable_urls_{timestamp}.txt")
             with open(vulnerable_urls_filename, 'a') as file:
                 file.write(vulnerable_urls + "\n")
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Vulnerable URL saved to {vulnerable_urls_filename}")
+            #print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Vulnerable URL saved to {vulnerable_urls_filename}")
         except OSError as e:
             print(f"Error saving vulnerable URL to text file: {e}")
 
@@ -1081,7 +1081,7 @@ class XSSScanner:
 
 
         # Test each payload against the filtered parameters
-        selected_filters = xss_payloads[:self.use_filters]  # Apply the specified number of filters
+        selected_filters = xss_payloads[:self.obfuscation_methods]  # Apply the specified number of filters
         for param in filtered_params:
             for payload in selected_filters:
                 payload_url = f"{url}?{param}={payload}"
@@ -1139,7 +1139,7 @@ class XSSScanner:
             vulnerable_urls_filename = os.path.join(TEXT_FOLDER, f"vulnerable_urls_{timestamp}.txt")
             with open(vulnerable_urls_filename, 'a') as file:
                 file.write(vulnerable_urls + "\n")
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Vulnerable URL saved to {vulnerable_urls_filename}")
+            #print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Vulnerable URL saved to {vulnerable_urls_filename}")
         except OSError as e:
             print(f"Error saving vulnerable URL to text file: {e}")
 
@@ -1437,7 +1437,7 @@ class XSSScanner:
 
 
         # Test each payload against the filtered parameters
-        selected_filters = xss_payloads[:self.use_filters]  # Apply the specified number of filters
+        selected_filters = xss_payloads[:self.obfuscation_methods]  # Apply the specified number of filters
         for param in filtered_params:
             for payload in selected_filters:
                 payload_url = f"{url}?{param}={payload}"
@@ -1728,7 +1728,7 @@ def get_arguments():
     )
     xss_inspector.add_argument(
         "--use-filters",
-        dest="use_filters",
+        dest="obfuscation_methods",
         type=int,
         help="\033[93m                      Limit the number of WAF filters to be used from the top of the list.\033[0m",
         default=None
@@ -2094,7 +2094,7 @@ class PassiveCrawl:
         return list(final_urls_list)
     
 class XSSScanner:
-    def __init__(self, domain, url_list, threadNumber, report_file, skip_duplicate, use_filters, payload=None, duration=None):
+    def __init__(self, domain, url_list, threadNumber, report_file, skip_duplicate, obfuscation_methods, payload=None, duration=None):
         self.url_list = url_list
         self.threadNumber = threadNumber
         self.domain = domain
@@ -2102,7 +2102,7 @@ class XSSScanner:
         self.report_file = report_file
         self.payload = payload
         self.skip_duplicate = skip_duplicate
-        self.use_filters = use_filters  # Number of filters to use
+        self.obfuscation_methods = obfuscation_methods  # Number of filters to use
         self.url_test_counts = {}  # Dictionary to track URL test counts
         self.stop_scan = False
         self.links_discovered = len(url_list)  # Initialize links_discovered
@@ -2281,7 +2281,7 @@ class XSSScanner:
             vulnerable_urls_filename = os.path.join(TEXT_FOLDER, f"vulnerable_urls_{timestamp}.txt")
             with open(vulnerable_urls_filename, 'a') as file:
                 file.write(vulnerable_urls + "\n")
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Vulnerable URL saved to {vulnerable_urls_filename}")
+            #print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Vulnerable URL saved to {vulnerable_urls_filename}")
         except OSError as e:
             print(f"Error saving vulnerable URL to text file: {e}")
 
@@ -2413,7 +2413,7 @@ class XSSScanner:
 
 
         # Test each payload against the filtered parameters
-        selected_filters = xss_payloads[:self.use_filters]  # Apply the specified number of filters
+        selected_filters = xss_payloads[:self.obfuscation_methods]  # Apply the specified number of filters
         for param in filtered_params:
             for payload in selected_filters:
                 payload_url = f"{url}?{param}={payload}"
@@ -2471,7 +2471,7 @@ class XSSScanner:
             vulnerable_urls_filename = os.path.join(TEXT_FOLDER, f"vulnerable_urls_{timestamp}.txt")
             with open(vulnerable_urls_filename, 'a') as file:
                 file.write(vulnerable_urls + "\n")
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Vulnerable URL saved to {vulnerable_urls_filename}")
+            #print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Vulnerable URL saved to {vulnerable_urls_filename}")
         except OSError as e:
             print(f"Error saving vulnerable URL to text file: {e}")
 
@@ -2651,7 +2651,7 @@ class XSSScanner:
             with open(extracted_urls_filename, 'w') as file:
                 for url in self.url_list:
                     file.write(url + "\n")
-            print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}Extracted URLs saved to {extracted_urls_filename}")
+            #print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}Extracted URLs saved to {extracted_urls_filename}")
         except OSError as e:
             print(f"Error saving extracted URLs: {e}")
 
@@ -2769,7 +2769,7 @@ class XSSScanner:
 
 
         # Test each payload against the filtered parameters
-        selected_filters = xss_payloads[:self.use_filters]  # Apply the specified number of filters
+        selected_filters = xss_payloads[:self.obfuscation_methods]  # Apply the specified number of filters
         for param in filtered_params:
             for payload in selected_filters:
                 payload_url = f"{url}?{param}={payload}"
@@ -2862,7 +2862,7 @@ def save_extracted_urls(url_list):
         with open(extracted_urls_filename, 'w') as file:
             for url in url_list:
                 file.write(url + "\n")
-        print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}Extracted URLs saved to {extracted_urls_filename}")
+        #print(f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {Style.RESET_ALL}Extracted URLs saved to {extracted_urls_filename}")
     except OSError as e:
         print(f"Error saving extracted URLs: {e}")
 
@@ -3011,7 +3011,7 @@ if __name__ == "__main__":
         threadNumber=arguments.thread,
         report_file=arguments.report_file,
         skip_duplicate=skip_duplicate_limit,
-        use_filters=arguments.use_filters,
+        obfuscation_methods=arguments.obfuscation_methods,
         payload=None,
         duration=arguments.duration,
         domain=arguments.domain
