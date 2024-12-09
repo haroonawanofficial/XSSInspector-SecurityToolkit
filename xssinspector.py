@@ -991,7 +991,7 @@ class XSSScanner:
             report_html = template.render(report_data)
             with open(self.report_file, 'w') as report_file:
                 report_file.write(report_html)
-            print(f"[{current_time}] HTML report generated: {self.report_file}")
+            print(f"{Fore.YELLOW}[{current_time}]{Style.RESET_ALL}{Fore.CYAN} HTML report generated: {self.report_file}{Fore.CYAN}")
         except Exception as e:
             print(f"Error generating report: {e}")
 
@@ -2323,7 +2323,7 @@ class XSSScanner:
             report_html = template.render(report_data)
             with open(self.report_file, 'w') as report_file:
                 report_file.write(report_html)
-            print(f"[{current_time}] HTML report generated: {self.report_file}")
+            print(f"{Fore.YELLOW}[{current_time}]{Style.RESET_ALL}{Fore.CYAN} HTML report generated: {self.report_file}{Fore.CYAN}")
         except Exception as e:
             print(f"Error generating report: {e}")
 
