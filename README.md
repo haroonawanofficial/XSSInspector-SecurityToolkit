@@ -4,8 +4,8 @@ The XSSInspector is a powerful security tool designed to find Cross-Site Scripti
 ## Basic Usages for Newbies
 - **How to run**: python or python3 xssinspector.py --domain testphp.vulnweb.com --sources wayback --use-filters 95
 - **How to run with other options**: python or python3 xssinspector.py --domain testphp.vulnweb.com --sources wayback --use-filters 95 --report testphp.html --thread 20 (if you have fast system)
-- **How to use extracted file**: python or python3 xssinspector.py --extract-to-file testphp.txt --sources wayback 
-- **How to use extracted file with all**: python or python3 xssinspector.py --extract-to-file testphp.txt --sources all 
+- **How to use extract option**: python or python3 xssinspector.py --extract-to-file testphp.txt --sources wayback 
+- **How to use advance extract option**: python or python3 xssinspector.py --extract-to-file testphp.txt --sources all 
 - **How to clean url with url processor**: python or python3 xssinspector.py --input testphp.txt --php-query --output cleanedtestphp.txt or testphp.txt
 - **How to run from extracted file simple**: python or python3 xssinspector.py --use-extracted-file testphp.txt --use-filters 95
 - **How to run from extracted file advance**: python or python3 xssinspector.py --use-extracted-file testphp.txt --thread 20 --use-filters 95 --report testphp.html (if you have fast system)
