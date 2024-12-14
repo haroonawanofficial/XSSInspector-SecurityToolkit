@@ -1,6 +1,10 @@
 # XSSInspector
 The XSSInspector is a powerful security tool designed to find Cross-Site Scripting (XSS) threats—a pervasive and dangerous issue in web applications. This open-source solution simplifies XSS vulnerability identification and mitigation, serving as a valuable asset for security experts and developers.
 
+## Basic Usages for Newbies
+- **How to Run** python or python3 xssinspector.py --domain testphp.vulnweb.com --sources wayback --use-filters 95 --report testphp.html
+- **How to Run** python or python3 xssinspector.py --domain testphp.vulnweb.com --sources wayback --use-filters 95 --report testphp.html --thread 20 (if you have fast system)
+  
 ## Features
 
 - **URL Processor**: XSS Inspector can perform data cleansing and url check for .asp, .php, .cgi and more....
