@@ -12,6 +12,17 @@ The XSSInspector is a powerful security tool designed to find Cross-Site Scripti
 ## Features
 
 - **URL Processor**: XSS Inspector can perform data cleansing and url check for .asp, .php, .cgi and more....
+```
+# Supported extensions and common endpoints
+    supported_extensions = [".php", ".asp", ".htm", ".html", ".aspx", ".jsp", ".cgi"]
+    common_endpoints = [
+        "search?q=", "q?=", "id?=", "filter?q=", "query?=",
+        "name?=", "key?=", "page?=", "action?q=", "term?q=",
+        "login?", "signup?", "view?id=", "browse?q="
+    ]
+    scheme_regex = re.compile(r"^https?://")
+    embedded_url_regex = re.compile(r'"url":\s*"([^"]+)"')
+```
 
 - **Heuristic-Based Logic**: XSS Inspector can determine if an endpoint exists using heuristics. By leveraging assumptions and advanced reasoning, it verifies the endpoint and attempts to inject payloads to assess whether the remote target is vulnerable.
 
