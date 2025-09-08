@@ -1666,8 +1666,8 @@ def get_arguments():
     # Create the argument parser with RawTextHelpFormatter to preserve formatting
     parser = argparse.ArgumentParser(
         description=f"""
-{BLUE}{r"""XSS Inspector v.0.1 | Advanced URL Processor: v.0.0.1 | Add-ons: v.0.0.1 | Obfuscation: 96 Filters | Core Version: v.0.1"""}{END}
-{MAGENTA}{r"""Programmed by: Haroon Ahmad Awan (haroon@cyberzeus.pk)"""}{END}
+{BLUE}{f"XSS Inspector v.0.1 | Advanced URL Processor: v.0.0.1 | Add-ons: v.0.0.1 | Obfuscation: 96 Filters | Core Version: v.0.1"}{END}
+{MAGENTA}{f"Programmed by: Haroon Ahmad Awan (haroon@cyberzeus.pk)"}{END}
         """,
         formatter_class=argparse.RawTextHelpFormatter  # This ensures your formatting is preserved
     )
